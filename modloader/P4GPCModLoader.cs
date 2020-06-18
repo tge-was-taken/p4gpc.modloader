@@ -34,6 +34,7 @@ namespace modloader
             mDwPackRedirector = new DwPackAccessRedirector( logger );
             mDwPackRedirector.SetLoadDirectory( mConfiguration.ModDir );
             mFileAccessServer.AddFilter( mDwPackRedirector );
+            mFileAccessServer.Activate();
         }
     }
 }

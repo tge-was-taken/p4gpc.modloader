@@ -12,7 +12,6 @@ namespace modloader
         public IHook<NtReadFile> ReadFileHook { get; }
         public IHook<NtSetInformationFile> SetInformationFIleHook { get; }
         public IHook<NtQueryInformationFile> QueryInformationFileHook { get; }
-        public IHook<CloseHandleDelegate> CloseHandleHook { get; }
 
         public FileAccessServerHooks(IHook<NtCreateFile> createFileHook, IHook<NtReadFile> readFileHook,
             IHook<NtSetInformationFile> setInformationFileHook, IHook<NtQueryInformationFile> queryInformationHook)
@@ -37,7 +36,6 @@ namespace modloader
             ReadFileHook.Disable();
             SetInformationFIleHook.Disable();
             QueryInformationFileHook.Disable();
-            CloseHandleHook.Disable();
         }
 
         public void Enable()
@@ -46,7 +44,6 @@ namespace modloader
             ReadFileHook.Enable();
             SetInformationFIleHook.Enable();
             QueryInformationFileHook.Enable();
-            CloseHandleHook.Enable();
         }
     }
 }

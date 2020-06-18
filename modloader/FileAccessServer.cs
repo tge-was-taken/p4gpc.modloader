@@ -28,21 +28,35 @@ namespace modloader
         private object _readLock = new object();
         private object _filtersLock = new object();
 
+        private object _lock = new object();
+
         public FileAccessServer( NativeFunctions functions )
         {
-            Console.WriteLine( functions.CloseHandle.Address.ToString( "X8" ) );
             _hooks = new FileAccessServerHooks(
                 functions.NtCreateFile.Hook( NtCreateFileImpl ),
                 functions.NtReadFile.Hook( NtReadFileImpl ),
                 functions.SetFilePointer.Hook( SetInformationFileImpl ),
                 functions.GetFileSize.Hook( QueryInformationFileImpl ) );
 
-            _hooks.Activate();
-
             // TODO: Hook NtClose
             // Problem: Native->Managed Transition hits NtClose in .NET Core, so our hook code is never hit.
             // Problem: NtClose needs synchronization.
             // Solution: Write custom ASM to solve the problem, see NtClose branch.
+        }
+
+        public void Activate()
+        {
+            _hooks.Activate();
+        }
+
+        public void Enable()
+        {
+            _hooks.Enable();
+        }
+
+        public void Disable()
+        {
+            _hooks.Disable();
         }
 
         public void AddFilter( FileAccessFilter filter )
@@ -59,7 +73,7 @@ namespace modloader
             //lock ( _filtersLock )
             {
                 filter.SetHooks( null );
-                _filters.Add( filter );
+                _filters.Remove( filter );
             }
         }
 
@@ -107,10 +121,6 @@ namespace modloader
         {
             lock ( _readLock )
             {
-                //Console.WriteLine( $"[modloader:FileAccessServer] NtReadFile(handle = {handle}, hEvent = {hEvent}, apcRoutine = {( long )apcRoutine:X8}, " +
-                //    $"apcContext = {( long )apcContext:X8}, ioStatus = {ioStatus}, buffer = {( long )buffer:X8}, length = {length}, byteOffset = {( long )byteOffset:X8}," +
-                //    $"key = {( long )key:X8}" );
-
                 //lock ( _filtersLock )
                 {
                     foreach ( var filter in _filters )
@@ -122,17 +132,19 @@ namespace modloader
 
                 var result = _hooks.ReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
 
+#if DEBUG
                 if ( _handleToInfoMap.TryGetValue( handle, out var file ) )
                 {
                     var offset = file.FilePointer;
                     var reqOffset = ( byteOffset != null || ( byteOffset != null && byteOffset->HighPart == -1 && byteOffset->LowPart == FILE_USE_FILE_POINTER_POSITION )) ?
                     byteOffset->QuadPart : -1;
                     var effOffset = reqOffset == -1 ? offset : reqOffset;
-                    if ( length == sizeof( LiveDwPackFileEntry ) )
+                    if ( length == sizeof( DwPackFileEntry ) )
                     {
-                        Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle} File: {Path.GetFileName( file.FilePath )} Unhandled read of entry {( ( LiveDwPackFileEntry* )buffer )->Path} at 0x{effOffset:X8}", Color.Red );
+                        Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle} File: {Path.GetFileName( file.FilePath )} Unhandled read of entry {( ( DwPackFileEntry* )buffer )->Path} at 0x{effOffset:X8}", Color.Red );
                     }
                 }
+#endif
 
                 return result;
             }
@@ -143,18 +155,6 @@ namespace modloader
         {
             void RegisterFileHandle( IntPtr handle, string newFilePath )
             {
-                //if ( _handleToInfoMap.ContainsKey( handle ) )
-                //{
-                //    // If a file was already registered with this handle, notify the filters it has been closed
-                //    foreach ( var filter in _filters.Where( x => x.Accept( handle ) ) )
-                //    {
-                //        filter.NtCloseImpl( handle );
-                //    }
-
-                //    _handleToInfoMap.Remove( handle, out var file );
-                //    //Console.WriteLine( $"[modloader:FileAccessServer] Hnd {handle} File {file.FilePath} Disposed" );
-                //}
-
                 _handleToInfoMap[handle] = new FileInfo( newFilePath, 0 );
             }
 
@@ -168,20 +168,6 @@ namespace modloader
                 NtStatus ret;
                 //lock ( _filtersLock )
                 {
-                    //if ( _handleToInfoMap.Any( x => x.Value.FilePath.Equals( newFilePath, StringComparison.OrdinalIgnoreCase ) ) )
-                    //{
-                    //    // HACK: If a file was already registered with a different handle, fake an NtClose call to close it
-                    //    var otherHandle =  _handleToInfoMap.First( x => x.Value.FilePath.Equals( newFilePath, StringComparison.OrdinalIgnoreCase ) ).Key;
-                    //    foreach ( var filter in _filters )
-                    //    {
-                    //        if ( filter.Accept( newFilePath ) )
-                    //            filter.NtCloseImpl( otherHandle );
-                    //    }
-
-                    //    _handleToInfoMap.Remove( otherHandle, out var value );
-                    //    //Console.WriteLine( $"[modloader:FileAccessServer] Disposing old handle for {newFilePath}" );
-                    //}
-
                     foreach ( var filter in _filters )
                     {
                         if ( filter.Accept( newFilePath ) )
@@ -190,7 +176,6 @@ namespace modloader
                                 fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
 
                             RegisterFileHandle( handle, newFilePath );
-                            //Console.WriteLine( $"[modloader:FileAccessServer] Hnd {handle} File {newFilePath} opened" );
                             return ret;
                         }
                     }
@@ -198,7 +183,6 @@ namespace modloader
                     ret = _hooks.CreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
                         fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
                     RegisterFileHandle( handle, newFilePath );
-                    //Console.WriteLine( $"[modloader:FileAccessServer] Hnd {handle} File {newFilePath} opened" );
                     return ret;
                 }
             }

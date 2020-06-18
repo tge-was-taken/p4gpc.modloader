@@ -5,7 +5,7 @@ using System.Text;
 namespace modloader
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 0x120)]
-    public unsafe struct LiveDwPackFileEntry
+    public unsafe struct DwPackFileEntry
     {
         public int Field00;
         public int Id;

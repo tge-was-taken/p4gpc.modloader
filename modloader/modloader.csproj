@@ -9,11 +9,12 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>$(RELOADEDII)\Mods\p4gpc.modloader</OutputPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <OutputPath>D:\Modding\Tools\Reloaded\Mods\p4gpc.modloader\</OutputPath>
+    <OutputPath>$(RELOADEDII)\Mods\p4gpc.modloader</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,7 +42,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="C:\Users\smart\Source\Repos\Amicitia.IO\Amicitia.IO\src\Amicitia.IO\Amicitia.IO.csproj" />
+    <ProjectReference Include="..\external\Amicitia.IO\src\Amicitia.IO\Amicitia.IO.csproj" />
   </ItemGroup>
 
 </Project>
