@@ -1,0 +1,16 @@
+{
+  "ModId": "p4gpc-modloader",
+  "ModName": "Mod Loader",
+  "ModAuthor": "TGE, Sewer56",
+  "ModVersion": "1.0.0",
+  "ModDescription": "",
+  "ModDll": "modloader.dll",
+  "ModIcon": "Preview.png",
+  "ModR2RManagedDll32": "x86/modloader.dll",
+  "ModR2RManagedDll64": "x64/modloader.dll",
+  "ModNativeDll32": "",
+  "ModNativeDll64": "",
+  "ModDependencies": [ "reloaded.sharedlib.hooks" ],
+  "OptionalDependencies": null,
+  "SupportedAppId": [ "p4g.exe" ]
+}
