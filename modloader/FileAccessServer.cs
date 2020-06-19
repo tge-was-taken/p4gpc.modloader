@@ -5,12 +5,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using modloader.Hooking;
-using Reloaded.Hooks.Definitions;
-using Reloaded.Memory;
 using static modloader.Native;
 
 namespace modloader
@@ -24,14 +20,14 @@ namespace modloader
         private List<FileAccessFilter> _filters = new List<FileAccessFilter>();
         private FileAccessServerHooks _hooks;
 
+        private object _closeHandleLock = new object();
         private object _createLock = new object();
         private object _getInfoLock = new object();
         private object _setInfoLock = new object();
         private object _readLock = new object();
         private object _setFilterPointerLock = new object();
         private object _filtersLock = new object();
-
-        private object _lock = new object();
+        private bool _activated;
 
         public FileAccessServer( NativeFunctions functions )
         {
@@ -42,33 +38,31 @@ namespace modloader
                 functions.NtQueryinformationFile.Hook( NtQueryInformationFileImpl ),
                 functions.SetFilePointer.Hook(SetFilePointerImpl),
                 ImportAddressTableHooker.Hook<CloseHandleDelegate>("kernel32.dll", "CloseHandle", CloseHandleImpl));
-
-            // TODO: Hook NtClose
-            // Problem: Native->Managed Transition hits NtClose in .NET Core, so our hook code is never hit.
-            // Problem: NtClose needs synchronization.
-            // Solution: Write custom ASM to solve the problem, see NtClose branch.
         }
 
         private bool CloseHandleImpl( IntPtr handle )
         {
-            try
+            lock ( _closeHandleLock )
             {
-                //Console.WriteLine( $"[modloader:FileAccessServer] CloseHandle(handle = {handle})" );
-                //lock ( _filtersLock )
+                try
                 {
-                    foreach ( var filter in _filters )
+                    //Console.WriteLine( $"[modloader:FileAccessServer] CloseHandle(handle = {handle})" );
+                    //lock ( _filtersLock )
                     {
-                        if ( filter.Accept( handle ) )
-                            return filter.CloseHandleImpl( handle );
+                        foreach ( var filter in _filters )
+                        {
+                            if ( filter.Accept( handle ) )
+                                return filter.CloseHandleImpl( handle );
+                        }
                     }
-                }
 
-                return _hooks.CloseHandleHook.OriginalFunction( handle );
-            }
-            catch ( SEHException e )
-            {
-                Console.WriteLine( $"[modloader:FileAccessServer] {e}" );
-                return false;
+                    return _hooks.CloseHandleHook.OriginalFunction( handle );
+                }
+                catch ( SEHException e )
+                {
+                    Console.WriteLine( $"[modloader:FileAccessServer] {e}" );
+                    return false;
+                }
             }
         }
 
@@ -91,6 +85,7 @@ namespace modloader
 
         public void Activate()
         {
+            _activated = true;
             _hooks.Activate();
         }
 
@@ -106,20 +101,18 @@ namespace modloader
 
         public void AddFilter( FileAccessFilter filter )
         {
-            //lock ( _filtersLock )
-            {
-                filter.SetHooks( _hooks );
-                _filters.Add( filter );
-            }
+            if ( _activated ) throw new InvalidOperationException();
+
+            filter.SetHooks( _hooks );
+            _filters.Add( filter );
         }
 
         public void RemoveFilter( FileAccessFilter filter )
         {
-            //lock ( _filtersLock )
-            {
-                filter.SetHooks( null );
-                _filters.Remove( filter );
-            }
+            if ( _activated ) throw new InvalidOperationException();
+
+            filter.SetHooks( null );
+            _filters.Remove( filter );
         }
 
         private NtStatus NtQueryInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
@@ -127,16 +120,13 @@ namespace modloader
         {
             lock ( _getInfoLock )
             {
-                //lock ( _filtersLock )
+                foreach ( var filter in _filters )
                 {
-                    foreach ( var filter in _filters )
-                    {
-                        if ( filter.Accept( hfile ) )
-                            return filter.NtQueryInformationFileImpl( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
-                    }
+                    if ( filter.Accept( hfile ) )
+                        return filter.NtQueryInformationFileImpl( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
                 }
 
-                return _hooks.QueryInformationFileHook.OriginalFunction( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
+                return _hooks.NtQueryInformationFileHook.OriginalFunction( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
             }
         }
 
@@ -148,16 +138,13 @@ namespace modloader
                 if ( fileInformationClass == FileInformationClass.FilePositionInformation )
                     _handleToInfoMap[handle].FilePointer = *( long* )fileInformation;
 
-                //lock ( _filtersLock )
+                foreach ( var filter in _filters )
                 {
-                    foreach ( var filter in _filters )
-                    {
-                        if ( filter.Accept( handle ) )
-                            return filter.NtSetInformationFileImpl( handle, out ioStatusBlock, fileInformation, length, fileInformationClass );
-                    }
+                    if ( filter.Accept( handle ) )
+                        return filter.NtSetInformationFileImpl( handle, out ioStatusBlock, fileInformation, length, fileInformationClass );
                 }
 
-                return _hooks.SetInformationFIleHook.OriginalFunction( handle, out ioStatusBlock, fileInformation, length, fileInformationClass );
+                return _hooks.NtSetInformationFileHook.OriginalFunction( handle, out ioStatusBlock, fileInformation, length, fileInformationClass );
             }
         }
 
@@ -166,27 +153,24 @@ namespace modloader
         {
             lock ( _readLock )
             {
-                //lock ( _filtersLock )
+                foreach ( var filter in _filters )
                 {
-                    foreach ( var filter in _filters )
+                    if ( filter.Accept( handle ) )
                     {
-                        if ( filter.Accept( handle ) )
+                        try
                         {
-                            try
-                            {
-                                return filter.NtReadFileImpl( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
-                            }
-                            catch ( Exception e )
-                            {
-                                Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle} NtReadFileImpl exception thrown: {e}" );
-                                return _hooks.ReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
-                            }
-
+                            return filter.NtReadFileImpl( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
                         }
+                        catch ( Exception e )
+                        {
+                            Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle} NtReadFileImpl exception thrown: {e}" );
+                            return _hooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
+                        }
+
                     }
                 }
 
-                var result = _hooks.ReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
+                var result = _hooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
 
 #if DEBUG
                 if ( _handleToInfoMap.TryGetValue( handle, out var file ) )
@@ -209,41 +193,30 @@ namespace modloader
         private NtStatus NtCreateFileImpl( out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
             ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
-            void RegisterFileHandle( IntPtr handle, string newFilePath )
-            {
-                //Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle}, File: {newFilePath} NtCreateFile(out IntPtr handle = {handle}, FileAccess access = {access}, ref OBJECT_ATTRIBUTES objectAttributes = {{...}}, " +
-                //    $"ref IO_STATUS_BLOCK ioStatus = {{...}}, ref long allocSize = {{...}}, uint fileAttributes = {fileAttributes}, FileShare share = {share}, uint createDisposition = {createDisposition}, " +
-                //    $"uint createOptions = {createOptions}, IntPtr eaBuffer = {eaBuffer}, uint eaLength = {eaLength} )" );
-                _handleToInfoMap[handle] = new FileInfo( newFilePath, 0 );
-            }
-
             lock ( _createLock )
             {
                 string oldFileName = objectAttributes.ObjectName.ToString();
                 if ( !TryGetFullPath( oldFileName, out var newFilePath ) )
-                    return _hooks.CreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
+                    return _hooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
                         fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
 
                 NtStatus ret;
-                //lock ( _filtersLock )
+                foreach ( var filter in _filters )
                 {
-                    foreach ( var filter in _filters )
+                    if ( filter.Accept( newFilePath ) )
                     {
-                        if ( filter.Accept( newFilePath ) )
-                        {
-                            ret = filter.NtCreateFileImpl( newFilePath, out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
-                                fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
+                        ret = filter.NtCreateFileImpl( newFilePath, out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
+                            fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
 
-                            RegisterFileHandle( handle, newFilePath );
-                            return ret;
-                        }
+                        _handleToInfoMap[handle] = new FileInfo( newFilePath, 0 );
+                        return ret;
                     }
-
-                    ret = _hooks.CreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
-                        fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
-                    RegisterFileHandle( handle, newFilePath );
-                    return ret;
                 }
+
+                ret = _hooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
+                    fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
+                _handleToInfoMap[handle] = new FileInfo( newFilePath, 0 );
+                return ret;
             }
         }
 

@@ -8,10 +8,10 @@ namespace modloader
 {
     public class FileAccessServerHooks
     {
-        public IHook<NtCreateFile> CreateFileHook { get; }
-        public IHook<NtReadFile> ReadFileHook { get; }
-        public IHook<NtSetInformationFile> SetInformationFIleHook { get; }
-        public IHook<NtQueryInformationFile> QueryInformationFileHook { get; }
+        public IHook<NtCreateFile> NtCreateFileHook { get; }
+        public IHook<NtReadFile> NtReadFileHook { get; }
+        public IHook<NtSetInformationFile> NtSetInformationFileHook { get; }
+        public IHook<NtQueryInformationFile> NtQueryInformationFileHook { get; }
         public IHook<SetFilePointer> SetFilePointerHook { get; }
         public IHook<CloseHandleDelegate> CloseHandleHook { get; }
 
@@ -19,40 +19,40 @@ namespace modloader
             IHook<NtSetInformationFile> setInformationFileHook, IHook<NtQueryInformationFile> queryInformationHook,
             IHook<SetFilePointer> setFilePointerHook, IHook<CloseHandleDelegate> closeHandleHook)
         {
-            CreateFileHook = createFileHook;
-            ReadFileHook = readFileHook;
-            SetInformationFIleHook = setInformationFileHook;
-            QueryInformationFileHook = queryInformationHook;
+            NtCreateFileHook = createFileHook;
+            NtReadFileHook = readFileHook;
+            NtSetInformationFileHook = setInformationFileHook;
+            NtQueryInformationFileHook = queryInformationHook;
             SetFilePointerHook = setFilePointerHook;
             CloseHandleHook = closeHandleHook;
         }
 
         public void Activate()
         {
-            CreateFileHook.Activate();
-            ReadFileHook.Activate();
-            SetInformationFIleHook.Activate();
-            QueryInformationFileHook.Activate();
+            NtCreateFileHook.Activate();
+            NtReadFileHook.Activate();
+            NtSetInformationFileHook.Activate();
+            NtQueryInformationFileHook.Activate();
             SetFilePointerHook.Activate();
             CloseHandleHook.Activate();
         }
 
         public void Disable()
         {
-            CreateFileHook.Disable();
-            ReadFileHook.Disable();
-            SetInformationFIleHook.Disable();
-            QueryInformationFileHook.Disable();
+            NtCreateFileHook.Disable();
+            NtReadFileHook.Disable();
+            NtSetInformationFileHook.Disable();
+            NtQueryInformationFileHook.Disable();
             SetFilePointerHook.Disable();
             CloseHandleHook.Disable();
         }
 
         public void Enable()
         {
-            CreateFileHook.Enable();
-            ReadFileHook.Enable();
-            SetInformationFIleHook.Enable();
-            QueryInformationFileHook.Enable();
+            NtCreateFileHook.Enable();
+            NtReadFileHook.Enable();
+            NtSetInformationFileHook.Enable();
+            NtQueryInformationFileHook.Enable();
             SetFilePointerHook.Enable();
             CloseHandleHook.Enable();
         }

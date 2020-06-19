@@ -1,15 +1,5 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
-using Amicitia.IO.Binary;
-using modloader.Configuration;
-using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.ReloadedII.Interfaces;
+﻿using modloader.Configuration;
 using Reloaded.Mod.Interfaces;
-using static modloader.Native;
 
 namespace modloader
 {
@@ -17,7 +7,7 @@ namespace modloader
     {
         private ILogger mLogger;
         private Config mConfiguration;
-        private Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks mHooks;
+        private readonly Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks mHooks;
         private NativeFunctions mNativeFunctions;
 
         private FileAccessServer mFileAccessServer;
@@ -29,6 +19,7 @@ namespace modloader
             mConfiguration = configuration;
             mHooks = hooks;
 
+            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.0a" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( mNativeFunctions );
             mDwPackRedirector = new DwPackAccessRedirector( logger );

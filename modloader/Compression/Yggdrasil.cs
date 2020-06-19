@@ -1,8 +1,6 @@
 ﻿// Ported & adapted from https://github.com/agentOfChaos/oversized_syringe/blob/master/ovsylib/compresion_algos/yggdrasil.py
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;

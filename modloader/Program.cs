@@ -4,10 +4,6 @@ using Reloaded.Mod.Interfaces;
 using Reloaded.Mod.Interfaces.Internal;
 using modloader.Configuration;
 using modloader.Configuration.Implementation;
-using modloader.Compression;
-using System.IO;
-using System.Diagnostics;
-using System.Linq;
 
 namespace modloader
 {
@@ -127,71 +123,6 @@ namespace modloader
         */
         public static void Main() 
         {
-            //var stream = new BitStream(Endianness.Big);
-            //stream.WriteBit( true );
-            //stream.WriteBit( true );
-            //Debug.Assert( stream.Position == 0 );
-            //var tempx = stream.ReadByte();
-            //Debug.Assert( tempx == 0xC0 );
-            //Debug.Assert( stream.Position == 1 );
-            //stream.WriteBit( true );
-            //stream.WriteBit( false );
-            //stream.WriteByte( 1 );
-            //Debug.Assert( stream.Position == 2 );
-            //stream.Position = 1;
-            //Debug.Assert( stream.ReadBit() );
-            //Debug.Assert( !stream.ReadBit() );
-            //Debug.Assert( stream.ReadBit() );
-            //return;
-
-            //using ( var cpkStream = File.OpenRead( @"D:\Games\PC\SteamLibrary\steamapps\common\Day\data.cpk" ) )
-            //using ( var cpkReader = new BinaryReader(cpkStream)) 
-            //using ( var decCpkStream = File.Create( @"D:\Games\PC\SteamLibrary\steamapps\common\Day\data.cpk.dec" ) )
-            //using ( var decCpkStream2 = File.Create( @"D:\Games\PC\SteamLibrary\steamapps\common\Day\data.cpk.dec2" ) )
-            //{
-            //    cpkReader.BaseStream.Seek( 4, SeekOrigin.Current );
-            //    var compressedSize = cpkReader.ReadInt32();
-            //    var decompressedSize = cpkReader.ReadInt32();
-            //    var isCompressed = cpkReader.ReadInt32();
-
-            //    // Compressed file header
-            //    var magic = cpkReader.ReadInt32();
-            //    var chunkCount = cpkReader.ReadInt32();
-            //    var chunkSize = cpkReader.ReadInt32();
-            //    var headerSize = cpkReader.ReadInt32();
-            //    for ( int i = 0; i < chunkCount; i++ )
-            //    {
-            //        var chunkUncompressedSize = cpkReader.ReadInt32();
-            //        var chunkCompressedSize = cpkReader.ReadInt32();
-            //        var dataOffset = cpkReader.ReadInt32();
-            //        var next = cpkReader.BaseStream.Position;
-            //        cpkStream.Seek( ( headerSize + 0x10 ) + dataOffset, SeekOrigin.Begin );
-            //        Yggdrasil.uncompress( cpkStream, decCpkStream, chunkCompressedSize, chunkUncompressedSize, true );
-            //        cpkReader.BaseStream.Seek( next, SeekOrigin.Begin );
-
-            //        decCpkStream.Position = 0;
-            //        var comDecCpkStream = Yggdrasil.compress( decCpkStream, 0, ( int )decCpkStream.Length, true );
-            //        using ( var temp3 = File.Create("temp3"))
-            //        {
-            //            comDecCpkStream.Position = 0;
-            //            comDecCpkStream.CopyTo( temp3 );
-            //            comDecCpkStream.Position = 0;
-            //        }
-
-            //        var temp = new MemoryStream();
-            //        comDecCpkStream.Position = 0;
-            //        Yggdrasil.uncompress( comDecCpkStream, temp, ( int )comDecCpkStream.Length, ( int )decCpkStream.Length );
-
-            //        var temp2 = new MemoryStream();
-            //        decCpkStream.Position = 0;
-            //        decCpkStream.CopyTo( temp2 );
-            //        temp.Position = 0;
-            //        temp.CopyTo( decCpkStream2 );
-            //        //Debug.Assert( temp.ToArray().SequenceEqual( temp2.ToArray() ) );
-                    
-            //        return;
-            //    }
-            //}
         }
     }
 }
