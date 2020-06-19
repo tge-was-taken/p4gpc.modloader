@@ -13,20 +13,20 @@ namespace modloader
 
         public IFunction<NtCreateFile> NtCreateFile;
         public IFunction<NtReadFile> NtReadFile;
-        public IFunction<NtSetInformationFile> SetFilePointer;
-        public IFunction<NtQueryInformationFile> GetFileSize;
-        public IFunction<FreeConsoleDelegate> FreeConsole;
+        public IFunction<NtSetInformationFile> NtSetInformationFile;
+        public IFunction<NtQueryInformationFile> NtQueryinformationFile;
+        public IFunction<SetFilePointer> SetFilePointer;
         public IFunction<CloseHandleDelegate> CloseHandle;
 
         public NativeFunctions(IntPtr ntCreateFile, IntPtr ntReadFile, IntPtr ntSetInformationFile, 
-            IntPtr ntQueryInformationFile, IntPtr freeConsole, IntPtr closeHandle,
+            IntPtr ntQueryInformationFile, IntPtr setFilePointer, IntPtr closeHandle,
             IReloadedHooks hooks)
         {
             NtCreateFile = hooks.CreateFunction<NtCreateFile>((long) ntCreateFile);
             NtReadFile = hooks.CreateFunction<NtReadFile>((long) ntReadFile);
-            SetFilePointer = hooks.CreateFunction<NtSetInformationFile>((long) ntSetInformationFile);
-            GetFileSize = hooks.CreateFunction<NtQueryInformationFile>((long) ntQueryInformationFile);
-            FreeConsole = hooks.CreateFunction<FreeConsoleDelegate>( (long)freeConsole );
+            NtSetInformationFile = hooks.CreateFunction<NtSetInformationFile>((long) ntSetInformationFile);
+            NtQueryinformationFile = hooks.CreateFunction<NtQueryInformationFile>((long) ntQueryInformationFile);
+            SetFilePointer = hooks.CreateFunction<SetFilePointer>( ( long )setFilePointer );
             CloseHandle = hooks.CreateFunction<CloseHandleDelegate>( ( long )closeHandle );
         }
 
@@ -38,14 +38,14 @@ namespace modloader
             var ntdllHandle    = LoadLibraryW("ntdll");
             var ntCreateFilePointer = GetProcAddress(ntdllHandle, "NtCreateFile");
             var ntReadFilePointer = GetProcAddress(ntdllHandle, "NtReadFile");
-            var setFilePointer = GetProcAddress(ntdllHandle, "NtSetInformationFile");
-            var getFileSize = GetProcAddress(ntdllHandle, "NtQueryInformationFile");
+            var ntSetInformationFilePtr = GetProcAddress(ntdllHandle, "NtSetInformationFile");
+            var ntQueryInformationFilePtr = GetProcAddress(ntdllHandle, "NtQueryInformationFile");
 
             var kernel32Handle = LoadLibraryW("kernel32");
-            var freeConsolePtr = GetProcAddress(kernel32Handle, "FreeConsole");
+            var setFilePointerPtr = GetProcAddress(kernel32Handle, "SetFilePointer");
             var closeHandlePtr = GetProcAddress(kernel32Handle, "CloseHandle");
 
-            _instance = new NativeFunctions(ntCreateFilePointer, ntReadFilePointer, setFilePointer, getFileSize, freeConsolePtr, closeHandlePtr, hooks );
+            _instance = new NativeFunctions(ntCreateFilePointer, ntReadFilePointer, ntSetInformationFilePtr, ntQueryInformationFilePtr, setFilePointerPtr, closeHandlePtr, hooks );
             _instanceMade = true;
 
             return _instance;

@@ -12,14 +12,19 @@ namespace modloader
         public IHook<NtReadFile> ReadFileHook { get; }
         public IHook<NtSetInformationFile> SetInformationFIleHook { get; }
         public IHook<NtQueryInformationFile> QueryInformationFileHook { get; }
+        public IHook<SetFilePointer> SetFilePointerHook { get; }
+        public IHook<CloseHandleDelegate> CloseHandleHook { get; }
 
         public FileAccessServerHooks(IHook<NtCreateFile> createFileHook, IHook<NtReadFile> readFileHook,
-            IHook<NtSetInformationFile> setInformationFileHook, IHook<NtQueryInformationFile> queryInformationHook)
+            IHook<NtSetInformationFile> setInformationFileHook, IHook<NtQueryInformationFile> queryInformationHook,
+            IHook<SetFilePointer> setFilePointerHook, IHook<CloseHandleDelegate> closeHandleHook)
         {
             CreateFileHook = createFileHook;
             ReadFileHook = readFileHook;
             SetInformationFIleHook = setInformationFileHook;
             QueryInformationFileHook = queryInformationHook;
+            SetFilePointerHook = setFilePointerHook;
+            CloseHandleHook = closeHandleHook;
         }
 
         public void Activate()
@@ -28,6 +33,8 @@ namespace modloader
             ReadFileHook.Activate();
             SetInformationFIleHook.Activate();
             QueryInformationFileHook.Activate();
+            SetFilePointerHook.Activate();
+            CloseHandleHook.Activate();
         }
 
         public void Disable()
@@ -36,6 +43,8 @@ namespace modloader
             ReadFileHook.Disable();
             SetInformationFIleHook.Disable();
             QueryInformationFileHook.Disable();
+            SetFilePointerHook.Disable();
+            CloseHandleHook.Disable();
         }
 
         public void Enable()
@@ -44,6 +53,8 @@ namespace modloader
             ReadFileHook.Enable();
             SetInformationFIleHook.Enable();
             QueryInformationFileHook.Enable();
+            SetFilePointerHook.Enable();
+            CloseHandleHook.Enable();
         }
     }
 }

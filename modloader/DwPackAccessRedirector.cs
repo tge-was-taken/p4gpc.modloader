@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using Amicitia.IO.Streams;
+using modloader.Compression;
 using Reloaded.Mod.Interfaces;
 using static modloader.Native;
 
@@ -37,6 +41,7 @@ namespace modloader
             public bool IsRedirected { get; private set; }
             public string FilePath { get; private set; }
             public long FileSize { get; private set; }
+            public Stream FallbackStream { get; set; }
 
             public VirtualDwPackFile( VirtualDwPack pack, DwPackFileEntry* entry )
             {
@@ -94,23 +99,10 @@ namespace modloader
             return mPacksByHandle.ContainsKey( handle );
         }
 
-        public override unsafe NtStatus SetInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock,
-            void* fileInformation, uint length, FileInformationClass fileInformationClass )
+        public override bool CloseHandleImpl( IntPtr handle )
         {
-
-            if ( fileInformationClass == FileInformationClass.FilePositionInformation )
-            {
-                //Log( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8} = {*(long*)fileInformation:X8}, " +
-                //    $"length = {length}, fileInformationClass = {fileInformationClass}" );
-                mPacksByHandle[hfile].FilePointer = *( long* )fileInformation;
-            }
-            else
-            {
-                Warning( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8}, " +
-                    $"length = {length}, fileInformationClass = {fileInformationClass}" );
-            }
-
-            return mHooks.SetInformationFIleHook.OriginalFunction( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
+            mPacksByHandle.Remove( handle );
+            return mHooks.CloseHandleHook.OriginalFunction( handle );
         }
 
         public override Native.NtStatus NtCreateFileImpl( string newFilePath, out IntPtr handle, FileAccess access,
@@ -158,7 +150,6 @@ namespace modloader
             VirtualDwPack pack, long offset, long effOffset )
         {
             // Header read
-            Debug( $"{pack.FileName} Hnd: {handle} Intercepted header read" );
             var result = mHooks.ReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
             if ( result != NtStatus.Success ) return result;
 
@@ -188,7 +179,6 @@ namespace modloader
             VirtualDwPack pack, long offset, long effOffset )
         {
             // Entries read
-            Debug( $"{pack.FileName} Hnd: {handle} Intercepted entry read" );
             var entry = (DwPackFileEntry*)buffer;
             var fileIndex = (int)((effOffset - sizeof(DwPackHeader)) / sizeof(DwPackFileEntry));
 
@@ -198,13 +188,14 @@ namespace modloader
             }
             else
             {
-                Debug( $"{pack.FileName} Hnd: {handle} Accessed file entry {entry->Path} Field00: {entry->Field00} Id: {entry->Id} Field104: {entry->Field104}" +
-                        $"CompressedSize: {entry->CompressedSize:X8} UncompressedSize: {entry->UncompressedSize:X8} Flags: {entry->Flags} DataOffset: {pack.DataStartOffset + entry->DataOffset:X8}" );
-
                 if ( pack.Files[fileIndex] == null )
                 {
                     var result = mHooks.ReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
                     if ( result != NtStatus.Success ) return result;
+
+                    Debug( $"{pack.FileName} Hnd: {handle} Accessed file entry {entry->Path} Field00: {entry->Field00} Id: {entry->Id} Field104: {entry->Field104}" +
+                        $"CompressedSize: {entry->CompressedSize:X8} UncompressedSize: {entry->UncompressedSize:X8} Flags: {entry->Flags} DataOffset: {pack.DataStartOffset + entry->DataOffset:X8}" );
+
                     var file = pack.Files[fileIndex] = new VirtualDwPackFile( pack, entry );
 
                     var redirectedFilePath = Path.Combine(mLoadDirectory, pack.FileName, entry->Path);
@@ -226,6 +217,9 @@ namespace modloader
                 }
                 else
                 {
+                    Debug( $"{pack.FileName} Hnd: {handle} Accessed file entry {entry->Path} Field00: {entry->Field00} Id: {entry->Id} Field104: {entry->Field104}" +
+                        $"CompressedSize: {entry->CompressedSize:X8} UncompressedSize: {entry->UncompressedSize:X8} Flags: {entry->Flags} DataOffset: {pack.DataStartOffset + entry->DataOffset:X8}" );
+
                     // Repeat access
                     *entry = pack.Files[fileIndex].NewEntry;
                 }
@@ -266,9 +260,9 @@ namespace modloader
                     Info( $"{pack.FileName} Hnd: {handle} File data access {entry.Path} Offset: 0x{effOffset:X8} Length: 0x{length:X8} redirected to {file.FilePath}" );
                     result = NtStatus.Success;
 
-                    if ( length != file.FileSize )
+                    if ( length != file.FileSize && length != 0x00300000 )
                     {
-                        Debug( "Read length doesnt match file size!!" );
+                        Error( "Read length doesnt match file size!!" );
                         Debug( $"{pack.FileName} Hnd: {handle} Path {entry.Path}" );
                         Debug( $"Patched entry: Field00: {entry.Field00} Id: {entry.Id} Field104: {entry.Field104} " +
                             $"CompressedSize: {entry.CompressedSize:X8} UncompressedSize: {entry.UncompressedSize:X8} " +
@@ -278,7 +272,12 @@ namespace modloader
                     var relativeDataOffset = effOffset - dataOffset;
                     if ( relativeDataOffset < 0 )
                     {
-                        Error( $"{pack.FileName} Hnd: {handle} Attempt to read before start of data!!!" );
+                        Error( $"{pack.FileName} Hnd: {handle} Offset is before start of data!!!" );
+                        continue;
+                    }
+                    else if ( relativeDataOffset > file.FileSize )
+                    {
+                        Error( $"{pack.FileName} Hnd: {handle} Offset is after end of data!!!" );
                         continue;
                     }
                     else
@@ -291,17 +290,49 @@ namespace modloader
                         Error( $"{pack.FileName} Hnd: {handle} Redirected file is too small, attempted to read past end of data!!!" );
                         continue;
                     }
+                    else
+                    {
+                        //if ( ioStatus.Information != ( IntPtr )length )
+                        //{
+                        //    Error( $"{pack.FileName} Hnd: {handle} Pack file read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{ioStatus.Information:X8}" );
+                        //}
+
+                        //// Copy the buffer read from the file
+                        //var bufferCopy = new byte[length];
+                        //fixed ( byte* pBufferCopy = bufferCopy )
+                        //    Unsafe.CopyBlock( pBufferCopy, buffer, ( uint )length );
+
+                        //var decompressedBufferStream = new MemoryStream();
+                        //Yggdrasil.uncompress( new MemoryStream( bufferCopy ), decompressedBufferStream, file.OriginalEntry.CompressedSize, file.OriginalEntry.UncompressedSize );
+                        //var decompressedBuffer = decompressedBufferStream.ToArray();
+                    }
 
                     // Read from redirected file into the buffer
-                    using ( var fileStream = file.OpenRead() )
+                    using ( var redirectedStream = file.OpenRead() )
                     {
-                        fileStream.Seek( relativeDataOffset, SeekOrigin.Begin );
-                        fileStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
+                        redirectedStream.Seek( relativeDataOffset, SeekOrigin.Begin );
+                        var readBytes = redirectedStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
+                        if ( readBytes != length )
+                        {
+                            Error( $"{pack.FileName} Hnd: {handle} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+                        }
+
                         Debug( $"{pack.FileName} Hnd: {handle} Wrote redirected file to buffer" );
                     }
 
+                    // Compare buffers
+                    //var isSame = true;
+                    //for ( int j = 0; j < length; j++ )
+                    //{
+                    //    if ( decompressedBuffer[j] != buffer[j])
+                    //    {
+                    //        Error( $"Buffer contents dont match!!!! 0x{j:X8} O {bufferCopy[j]:X} N {buffer[j]:X}" );
+                    //        break;
+                    //    }
+                    //}
+
                     offset += length;
-                    SetInformationFileImpl( handle, out _, &offset, sizeof( long ), FileInformationClass.FilePositionInformation );
+                    NtSetInformationFileImpl( handle, out _, &offset, sizeof( long ), FileInformationClass.FilePositionInformation );
 
                     // Set number of read bytes.
                     ioStatus.Status = 0;
@@ -352,9 +383,53 @@ namespace modloader
             return result;
         }
 
+        public override unsafe NtStatus NtSetInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock,
+            void* fileInformation, uint length, FileInformationClass fileInformationClass )
+        {
+
+            if ( fileInformationClass == FileInformationClass.FilePositionInformation )
+            {
+                //Debug( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8} = {*( long* )fileInformation:X8}, " +
+                //    $"length = {length}, fileInformationClass = {fileInformationClass}" );
+                var pack = mPacksByHandle[hfile];
+                pack.FilePointer = *( long* )fileInformation;
+                Debug( $"{pack.FileName} Hnd: {hfile} SetFilePointer -> 0x{pack.FilePointer:X8}" );
+            }
+            else
+            {
+                Warning( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8}, " +
+                    $"length = {length}, fileInformationClass = {fileInformationClass}" );
+            }
+
+            return mHooks.SetInformationFIleHook.OriginalFunction( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
+        }
+
+
         public override unsafe NtStatus NtQueryInformationFileImpl( IntPtr hfile, out Native.IO_STATUS_BLOCK ioStatusBlock, void* fileInformation, uint length, Native.FileInformationClass fileInformationClass )
         {
             return mHooks.QueryInformationFileHook.OriginalFunction( hfile, out ioStatusBlock, fileInformation, length, fileInformationClass );
+        }
+
+        public override uint SetFilePointerImpl( IntPtr hFile, int lDistanceToMove, IntPtr lpDistanceToMoveHigh, uint dwMoveMethod )
+        {
+            //return mHooks.SetFilePointerHook.OriginalFunction( hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod );
+            const uint INVALID_SET_FILE_POINTER = 0xFFFFFFFF;
+
+            // Thanks Microsoft
+            var result = mHooks.SetFilePointerHook.OriginalFunction( hFile, lDistanceToMove, lpDistanceToMoveHigh, dwMoveMethod );
+            if ( result == INVALID_SET_FILE_POINTER /*|| GetLastError() != 0*/ ) return result;
+
+            var offset = new LARGE_INTEGER() { LowPart = result };
+            var pack = mPacksByHandle[hFile];
+            if ( lpDistanceToMoveHigh != IntPtr.Zero )
+            {
+                //Debug( $"SetFilePointerImpl( IntPtr hFile = {hFile}, int lDistanceToMove = 0x{lDistanceToMove:X8}, IntPtr lpDistanceToMoveHigh = 0x{lpDistanceToMoveHigh:X8}, uint dwMoveMethod = {dwMoveMethod})" );
+                offset.HighPart = *( int* )lpDistanceToMoveHigh;
+            }
+
+            pack.FilePointer = offset.QuadPart;
+            //Debug( $"{pack.FileName} Hnd: {hFile} SetFilePointer -> 0x{pack.FilePointer:X8} ({lDistanceToMove:X8}, {dwMoveMethod}" );
+            return result;
         }
 
         private void Dump( long offset, uint length, byte* buffer )

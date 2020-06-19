@@ -7,6 +7,8 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
+using modloader.Hooking;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Memory;
 using static modloader.Native;
@@ -26,6 +28,7 @@ namespace modloader
         private object _getInfoLock = new object();
         private object _setInfoLock = new object();
         private object _readLock = new object();
+        private object _setFilterPointerLock = new object();
         private object _filtersLock = new object();
 
         private object _lock = new object();
@@ -35,13 +38,55 @@ namespace modloader
             _hooks = new FileAccessServerHooks(
                 functions.NtCreateFile.Hook( NtCreateFileImpl ),
                 functions.NtReadFile.Hook( NtReadFileImpl ),
-                functions.SetFilePointer.Hook( SetInformationFileImpl ),
-                functions.GetFileSize.Hook( QueryInformationFileImpl ) );
+                functions.NtSetInformationFile.Hook( NtSetInformationFileImpl ),
+                functions.NtQueryinformationFile.Hook( NtQueryInformationFileImpl ),
+                functions.SetFilePointer.Hook(SetFilePointerImpl),
+                ImportAddressTableHooker.Hook<CloseHandleDelegate>("kernel32.dll", "CloseHandle", CloseHandleImpl));
 
             // TODO: Hook NtClose
             // Problem: Native->Managed Transition hits NtClose in .NET Core, so our hook code is never hit.
             // Problem: NtClose needs synchronization.
             // Solution: Write custom ASM to solve the problem, see NtClose branch.
+        }
+
+        private bool CloseHandleImpl( IntPtr handle )
+        {
+            try
+            {
+                //Console.WriteLine( $"[modloader:FileAccessServer] CloseHandle(handle = {handle})" );
+                //lock ( _filtersLock )
+                {
+                    foreach ( var filter in _filters )
+                    {
+                        if ( filter.Accept( handle ) )
+                            return filter.CloseHandleImpl( handle );
+                    }
+                }
+
+                return _hooks.CloseHandleHook.OriginalFunction( handle );
+            }
+            catch ( SEHException e )
+            {
+                Console.WriteLine( $"[modloader:FileAccessServer] {e}" );
+                return false;
+            }
+        }
+
+        private uint SetFilePointerImpl( IntPtr hFile, int liDistanceToMove, IntPtr lpNewFilePointer, uint dwMoveMethod )
+        {
+            lock ( _setFilterPointerLock )
+            {
+                //lock ( _filtersLock )
+                {
+                    foreach ( var filter in _filters )
+                    {
+                        if ( filter.Accept( hFile ) )
+                            return filter.SetFilePointerImpl( hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod );
+                    }
+                }
+
+                return _hooks.SetFilePointerHook.OriginalFunction( hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod );
+            }
         }
 
         public void Activate()
@@ -77,7 +122,7 @@ namespace modloader
             }
         }
 
-        private NtStatus QueryInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
+        private NtStatus NtQueryInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
             lock ( _getInfoLock )
@@ -95,7 +140,7 @@ namespace modloader
             }
         }
 
-        private NtStatus SetInformationFileImpl( IntPtr handle, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
+        private NtStatus NtSetInformationFileImpl( IntPtr handle, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
             lock ( _setInfoLock )
@@ -108,7 +153,7 @@ namespace modloader
                     foreach ( var filter in _filters )
                     {
                         if ( filter.Accept( handle ) )
-                            return filter.SetInformationFileImpl( handle, out ioStatusBlock, fileInformation, length, fileInformationClass );
+                            return filter.NtSetInformationFileImpl( handle, out ioStatusBlock, fileInformation, length, fileInformationClass );
                     }
                 }
 
@@ -126,7 +171,18 @@ namespace modloader
                     foreach ( var filter in _filters )
                     {
                         if ( filter.Accept( handle ) )
-                            return filter.NtReadFileImpl( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
+                        {
+                            try
+                            {
+                                return filter.NtReadFileImpl( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
+                            }
+                            catch ( Exception e )
+                            {
+                                Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle} NtReadFileImpl exception thrown: {e}" );
+                                return _hooks.ReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
+                            }
+
+                        }
                     }
                 }
 
@@ -155,6 +211,9 @@ namespace modloader
         {
             void RegisterFileHandle( IntPtr handle, string newFilePath )
             {
+                //Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle}, File: {newFilePath} NtCreateFile(out IntPtr handle = {handle}, FileAccess access = {access}, ref OBJECT_ATTRIBUTES objectAttributes = {{...}}, " +
+                //    $"ref IO_STATUS_BLOCK ioStatus = {{...}}, ref long allocSize = {{...}}, uint fileAttributes = {fileAttributes}, FileShare share = {share}, uint createDisposition = {createDisposition}, " +
+                //    $"uint createOptions = {createOptions}, IntPtr eaBuffer = {eaBuffer}, uint eaLength = {eaLength} )" );
                 _handleToInfoMap[handle] = new FileInfo( newFilePath, 0 );
             }
 

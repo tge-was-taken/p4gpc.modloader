@@ -35,7 +35,7 @@ namespace modloader
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
         [Reloaded.Hooks.Definitions.X86.Function(Reloaded.Hooks.Definitions.X86.CallingConventions.Stdcall)]
-        public delegate NtStatus SetFilePointer(IntPtr hFile, int liDistanceToMove, IntPtr lpNewFilePointer, uint dwMoveMethod);
+        public delegate uint SetFilePointer(IntPtr hFile, int liDistanceToMove, IntPtr lpNewFilePointer, uint dwMoveMethod);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
@@ -630,5 +630,9 @@ namespace modloader
         [SuppressUnmanagedCodeSecurity]
         [DllImport( "kernel32.dll" )]
         public static extern bool FreeConsole();
+
+        [SuppressUnmanagedCodeSecurity]
+        [DllImport("kernel32.dll")]
+        public static extern uint GetLastError();
     }
 }
