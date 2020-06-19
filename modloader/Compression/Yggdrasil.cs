@@ -193,7 +193,7 @@ namespace modloader.Compression
             return (root, cursor);
         }
 
-        public static void uncompress( Stream binfile, Stream destfile, int numbytes, int bytes_out, bool debuggy = false )
+        public static void DecompressBlock( Stream binfile, Stream destfile, int numbytes, int bytes_out, bool debuggy = false )
         {
             var bytes = new byte[numbytes];
             binfile.Read( bytes );
@@ -245,6 +245,29 @@ namespace modloader.Compression
 
                 destfile.WriteByte( tarzan.value );
                 bytes_written += 1;
+            }
+        }
+
+        public static void Decompress( Stream binfile, Stream destfile )
+        {
+            // Compressed file header
+            using ( var reader = new BinaryReader( binfile, Encoding.Default, true ) )
+            {
+                var magic = reader.ReadInt32();
+                var chunkCount = reader.ReadInt32();
+                var chunkSize = reader.ReadInt32();
+                var headerSize = reader.ReadInt32();
+                for ( int i = 0; i < chunkCount; i++ )
+                {
+                    var chunkUncompressedSize = reader.ReadInt32();
+                    var chunkCompressedSize = reader.ReadInt32();
+                    var dataOffset = reader.ReadInt32();
+                    var next = reader.BaseStream.Position;
+                    reader.BaseStream.Seek( headerSize + dataOffset, SeekOrigin.Begin );
+                    DecompressBlock( reader.BaseStream, destfile, chunkCompressedSize, chunkUncompressedSize, true );
+                    reader.BaseStream.Seek( next, SeekOrigin.Begin );
+                    return;
+                }
             }
         }
 
@@ -324,7 +347,7 @@ namespace modloader.Compression
             return nodemap[0].Item2;
         }
 
-        public static BitStream compress( Stream sourcefile, int start_offs, int end_offs, bool debuggy = false )
+        public static BitStream CompressBlock( Stream sourcefile, int start_offs, int end_offs, bool debuggy = false )
         {
             // :return: bitarray object containing the compressed data
             var lookup_table = new Dictionary<byte, BitStream>();
@@ -452,35 +475,6 @@ namespace modloader.Compression
         //        target_read += 1;
         //    }
         //}
-
-
-        private static void WriteBits( Stream destStream, IList<bool> bits )
-        {
-            int numBytes = bits.Count / 8;
-            if ( bits.Count % 8 != 0 ) numBytes++;
-            int byteIndex = 0, bitIndex = 0;
-            byte b = 0;
-
-            for ( int i = 0; i < bits.Count; i++ )
-            {
-                if ( bits[i] )
-                    b |= ( byte )( 1 << ( 7 - bitIndex ) );
-
-                bitIndex++;
-                if ( bitIndex == 8 )
-                {
-                    bitIndex = 0;
-                    byteIndex++;
-                    destStream.WriteByte( b );
-                    b = 0;
-                }
-            }
-
-            if ( bitIndex != 0 )
-            {
-                destStream.WriteByte( b );
-            }
-        }
     }
 
     public enum Endianness
