@@ -76,7 +76,8 @@ namespace modloader
             }
 
             public Stream OpenRead()
-                => new FileStream( RedirectedPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096 );
+                => new FileStream( RedirectedPath, FileMode.Open, FileAccess.Read, 
+                    FileShare.Read | FileShare.Write | FileShare.Delete, 0x30000, FileOptions.RandomAccess );
         }
 
         private static readonly Regex sPacFileNameRegex = new Regex(@".+\d{5}.pac", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -84,6 +85,8 @@ namespace modloader
         private readonly Dictionary<IntPtr, VirtualDwPack> mPacksByHandle;
         private readonly Dictionary<string, VirtualDwPack> mPacksByName;
         private string mLoadDirectory;
+        private VirtualDwPackFile mCachedFile;
+        private Stream mCachedFileStream;
 
         public DwPackAccessRedirector( ILogger logger )
         {
@@ -294,18 +297,29 @@ namespace modloader
                         Debug( $"{pack.FileName} Hnd: {handle} {entry.Path} Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
                     }
 
-                    // Read from redirected file into the buffer
-                    using ( var redirectedStream = file.OpenRead() )
+                    
+                    // Get cached file stream if the file was previously opened or open a new file
+                    Stream redirectedStream;
+                    if ( mCachedFile == file )
                     {
-                        redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
-                        var readBytes = redirectedStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
-                        if ( readBytes != length )
-                        {
-                            Error( $"{pack.FileName} Hnd: {handle} {entry.Path} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
-                        }
-
-                        Debug( $"{pack.FileName} Hnd: {handle} {entry.Path} Wrote redirected file to buffer" );
+                        redirectedStream = mCachedFileStream;
                     }
+                    else
+                    {
+                        mCachedFileStream?.Close();
+                        mCachedFile = file;
+                        mCachedFileStream = redirectedStream = file.OpenRead();
+                    }
+
+                    // Read from redirected file into the buffer
+                    redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
+                    var readBytes = redirectedStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
+                    if ( readBytes != length )
+                    {
+                        Error( $"{pack.FileName} Hnd: {handle} {entry.Path} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+                    }
+
+                    Debug( $"{pack.FileName} Hnd: {handle} {entry.Path} Wrote redirected file to buffer" );
 
                     offset += length;
                     NtSetInformationFileImpl( handle, out _, &offset, sizeof( long ), FileInformationClass.FilePositionInformation );
