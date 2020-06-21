@@ -15,8 +15,8 @@ namespace modloader.Configuration
         */
 
 
-        [DisplayName( "Mod Directory" )]
-        [Description( "Path to the directory mods are stored in." )]
-        public string ModDir { get; set; } = "mods";
+        [DisplayName( "Load directory" )]
+        [Description( "Path to the directory files are loaded from." )]
+        public string LoadDirectory { get; set; } = "mods";
     }
 }

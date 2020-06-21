@@ -19,11 +19,11 @@ namespace modloader
             mConfiguration = configuration;
             mHooks = hooks;
 
-            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.0a" );
+            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.0.0" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( mNativeFunctions );
             mDwPackRedirector = new DwPackAccessRedirector( logger );
-            mDwPackRedirector.SetLoadDirectory( mConfiguration.ModDir );
+            mDwPackRedirector.SetLoadDirectory( mConfiguration.LoadDirectory );
             mFileAccessServer.AddFilter( mDwPackRedirector );
             mFileAccessServer.Activate();
         }

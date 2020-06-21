@@ -12,7 +12,7 @@ namespace modloader
         /// <summary>
         /// Your mod if from ModConfig.json, used during initialization.
         /// </summary>
-        private const string MyModId = "p4gpc-modloader";
+        private const string MyModId = "p4gpc.modloader";
 
         /// <summary>
         /// Used for writing text to the console window.

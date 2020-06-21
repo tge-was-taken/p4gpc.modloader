@@ -1,7 +1,7 @@
 # Project Output Paths
 $modOutputPath = "TempBuild"
 $solutionName = "modloader.csproj"
-$publishName = "modloader.zip"
+$publishName = "Mod.zip"
 $publishDirectory = "Publish"
 
 [Environment]::CurrentDirectory = $PWD

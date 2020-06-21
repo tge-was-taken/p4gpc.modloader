@@ -1,8 +1,8 @@
 {
-  "ModId": "p4gpc-modloader",
+  "ModId": "p4gpc.modloader",
   "ModName": "Mod Loader",
   "ModAuthor": "TGE, Sewer56",
-  "ModVersion": "1.0.0a",
+  "ModVersion": "1.0.0",
   "ModDescription": "A mod loader for Persona 4 Golden (Steam)",
   "ModDll": "modloader.dll",
   "ModIcon": "Preview.png",
@@ -11,6 +11,6 @@
   "ModNativeDll32": "",
   "ModNativeDll64": "",
   "ModDependencies": [ "reloaded.sharedlib.hooks" ],
-  "OptionalDependencies": null,
+  "OptionalDependencies": [],
   "SupportedAppId": [ "p4g.exe" ]
 }

@@ -27,12 +27,17 @@
     <None Remove="ModConfig.json" />
     <None Remove="Preview.png" />
     <None Remove="Publish.ps1" />
+    <None Remove="ReloadedGithubUpdater.json" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="ModConfig.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Preview.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ReloadedGithubUpdater.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,6 +49,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\external\Amicitia.IO\src\Amicitia.IO\Amicitia.IO.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NativeLibs Remove="ReloadedGithubUpdater.json" />
   </ItemGroup>
 
 </Project>
