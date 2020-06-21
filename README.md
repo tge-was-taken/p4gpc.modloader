@@ -1,4 +1,4 @@
-# p4gpc-modloader
+# p4gpc.modloader
 Mod loader for the Steam version of Persona 4 Golden
 
 # Dependencies
