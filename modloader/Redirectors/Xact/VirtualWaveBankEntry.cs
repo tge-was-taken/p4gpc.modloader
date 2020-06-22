@@ -64,7 +64,7 @@ namespace modloader.Redirectors.Xact
             {
                 Native->PlayRegion.Length = ( int )fileSize;
 
-                if ( true || fileSize > Native->PlayRegion.Length )
+                if ( fileSize > Native->PlayRegion.Length )
                 {
                     // Play region 
                     Native->PlayRegion.Offset = ( int )( WaveBank.AllocateSectionMemory( WaveBankSegmentIndex.EntryWaveData, ( int )Native->PlayRegion.Length ) );

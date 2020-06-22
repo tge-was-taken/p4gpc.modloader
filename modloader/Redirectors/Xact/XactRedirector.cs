@@ -30,6 +30,7 @@ namespace modloader.Redirectors.Xact
                     Score = 0;
                     Entry = null;
                     Stream.Dispose();
+                    Stream = null;
                     return true;
                 }
 
@@ -192,14 +193,32 @@ namespace modloader.Redirectors.Xact
                     }
 
                     // Read from redirected file into the buffer
-                    redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
-                    var readBytes = redirectedStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
-                    SetBytesRead( handle, (int)waveBank.FilePointer, (int)length, ref ioStatus );
+                    try
+                    {
 
-                    if ( readBytes != length )
-                        Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+                        try
+                        {
+                            redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
+                        }
+                        catch ( ObjectDisposedException )
+                        {
+                            Error( "Stream is disposed!!!!" );
+                            redirectedStream = entry.OpenRead();
+                            redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
+                        }
 
-                    Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Wrote redirected file to buffer" );
+                        var readBytes = redirectedStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
+                        SetBytesRead( handle, ( int )waveBank.FilePointer, ( int )length, ref ioStatus );
+
+                        if ( readBytes != length )
+                            Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+
+                        Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Wrote redirected file to buffer" );
+                    }
+                    catch ( Exception e )
+                    {
+                        Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Unhandled exception thrown during reading {entry.FileName}: {e}" );
+                    }
                 }
             }
 

@@ -28,7 +28,6 @@ namespace modloader
         private object _getInfoLock = new object();
         private object _setInfoLock = new object();
         private object _readLock = new object();
-        private object _filtersLock = new object();
         private bool _activated;
 
         public FileAccessServer( IReloadedHooks hookFactory, NativeFunctions functions )
@@ -47,14 +46,10 @@ namespace modloader
             {
                 try
                 {
-                    //Console.WriteLine( $"[modloader:FileAccessServer] CloseHandle(handle = {handle})" );
-                    //lock ( _filtersLock )
+                    foreach ( var filter in _filters )
                     {
-                        foreach ( var filter in _filters )
-                        {
-                            if ( filter.Accept( handle ) )
-                                return filter.CloseHandleImpl( handle );
-                        }
+                        if ( filter.Accept( handle ) )
+                            return filter.CloseHandleImpl( handle );
                     }
 
                     return _hooks.CloseHandleHook.OriginalFunction( handle );
@@ -154,23 +149,7 @@ namespace modloader
                     }
                 }
 
-                var result = _hooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
-
-#if DEBUG
-                if ( _handleToInfoMap.TryGetValue( handle, out var file ) )
-                {
-                    var offset = file.FilePointer;
-                    var reqOffset = ( byteOffset != null || ( byteOffset != null && byteOffset->HighPart == -1 && byteOffset->LowPart == FILE_USE_FILE_POINTER_POSITION )) ?
-                    byteOffset->QuadPart : -1;
-                    var effOffset = reqOffset == -1 ? offset : reqOffset;
-                    if ( length == sizeof( DwPackFileEntry ) )
-                    {
-                        Console.WriteLine( $"[modloader:FileAccessServer] Hnd: {handle} File: {Path.GetFileName( file.FilePath )} Unhandled read of entry {( ( DwPackFileEntry* )buffer )->Path} at 0x{effOffset:X8}", Color.Red );
-                    }
-                }
-#endif
-
-                return result;
+                return _hooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
             }
         }
 
