@@ -13,7 +13,8 @@ namespace modloader.Hooking
 {
     public static unsafe class ImportAddressTableHooker
     {
-		public static IHook<TFunction> Hook<TFunction>(string libraryName, string functionName, TFunction function)
+		public static IHook<TFunction> Hook<TFunction>( IReloadedHooks hookFactory, 
+			string libraryName, string functionName, TFunction function)
 		{
 			const int IMAGE_DIRECTORY_ENTRY_IMPORT = 1;
 

@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace modloader
+namespace modloader.Formats.DwPack
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 0x14)]
     public unsafe struct DwPackHeader

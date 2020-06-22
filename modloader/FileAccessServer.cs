@@ -3,10 +3,13 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using modloader.Formats.DwPack;
 using modloader.Hooking;
+using Reloaded.Hooks.Definitions;
 using static modloader.Native;
 
 namespace modloader
@@ -25,19 +28,17 @@ namespace modloader
         private object _getInfoLock = new object();
         private object _setInfoLock = new object();
         private object _readLock = new object();
-        private object _setFilterPointerLock = new object();
         private object _filtersLock = new object();
         private bool _activated;
 
-        public FileAccessServer( NativeFunctions functions )
+        public FileAccessServer( IReloadedHooks hookFactory, NativeFunctions functions )
         {
             _hooks = new FileAccessServerHooks(
                 functions.NtCreateFile.Hook( NtCreateFileImpl ),
                 functions.NtReadFile.Hook( NtReadFileImpl ),
                 functions.NtSetInformationFile.Hook( NtSetInformationFileImpl ),
                 functions.NtQueryinformationFile.Hook( NtQueryInformationFileImpl ),
-                functions.SetFilePointer.Hook(SetFilePointerImpl),
-                ImportAddressTableHooker.Hook<CloseHandleDelegate>("kernel32.dll", "CloseHandle", CloseHandleImpl));
+                ImportAddressTableHooker.Hook<CloseHandleDelegate>( hookFactory, "kernel32.dll", "CloseHandle", CloseHandleImpl));
         }
 
         private bool CloseHandleImpl( IntPtr handle )
@@ -63,23 +64,6 @@ namespace modloader
                     Console.WriteLine( $"[modloader:FileAccessServer] {e}" );
                     return false;
                 }
-            }
-        }
-
-        private uint SetFilePointerImpl( IntPtr hFile, int liDistanceToMove, IntPtr lpNewFilePointer, uint dwMoveMethod )
-        {
-            lock ( _setFilterPointerLock )
-            {
-                //lock ( _filtersLock )
-                {
-                    foreach ( var filter in _filters )
-                    {
-                        if ( filter.Accept( hFile ) )
-                            return filter.SetFilePointerImpl( hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod );
-                    }
-                }
-
-                return _hooks.SetFilePointerHook.OriginalFunction( hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod );
             }
         }
 

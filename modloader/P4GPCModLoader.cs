@@ -1,5 +1,9 @@
-﻿using modloader.Configuration;
+﻿using System.IO;
+using modloader.Configuration;
 using Reloaded.Mod.Interfaces;
+
+using modloader.Redirectors.DwPack;
+using modloader.Redirectors.Xact;
 
 namespace modloader
 {
@@ -11,7 +15,8 @@ namespace modloader
         private NativeFunctions mNativeFunctions;
 
         private FileAccessServer mFileAccessServer;
-        private DwPackAccessRedirector mDwPackRedirector;
+        private DwPackRedirector mDwPackRedirector;
+        private XactRedirector mXactRedirector;
 
         public P4GPCModLoader( ILogger logger, Config configuration, Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks hooks )
         {
@@ -21,10 +26,16 @@ namespace modloader
 
             mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.0.0" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
-            mFileAccessServer = new FileAccessServer( mNativeFunctions );
-            mDwPackRedirector = new DwPackAccessRedirector( logger );
-            mDwPackRedirector.SetLoadDirectory( mConfiguration.LoadDirectory );
+            mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );
+
+            // DW_PACK (PAC) redirector
+            mDwPackRedirector = new DwPackRedirector( logger, mConfiguration.LoadDirectory );
             mFileAccessServer.AddFilter( mDwPackRedirector );
+
+            // XACT (XWB, XSB) redirector
+            mXactRedirector = new XactRedirector( logger, mConfiguration.SoundLoadDirectory );
+            mFileAccessServer.AddFilter( mXactRedirector );
+
             mFileAccessServer.Activate();
         }
     }

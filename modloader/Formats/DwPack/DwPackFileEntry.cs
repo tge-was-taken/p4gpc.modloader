@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace modloader
+namespace modloader.Formats.DwPack
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 0x120)]
     public unsafe struct DwPackFileEntry

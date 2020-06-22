@@ -34,8 +34,6 @@ namespace modloader
         public abstract NtStatus NtCreateFileImpl( string newFilePath, out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
             ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength );
 
-        public abstract uint SetFilePointerImpl( IntPtr hFile, int liDistanceToMove, IntPtr lpNewFilePointer, uint dwMoveMethod );
-
         public abstract bool CloseHandleImpl( IntPtr handle );
     }
 }

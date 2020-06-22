@@ -12,18 +12,16 @@ namespace modloader
         public IHook<NtReadFile> NtReadFileHook { get; }
         public IHook<NtSetInformationFile> NtSetInformationFileHook { get; }
         public IHook<NtQueryInformationFile> NtQueryInformationFileHook { get; }
-        public IHook<SetFilePointer> SetFilePointerHook { get; }
         public IHook<CloseHandleDelegate> CloseHandleHook { get; }
 
         public FileAccessServerHooks(IHook<NtCreateFile> createFileHook, IHook<NtReadFile> readFileHook,
             IHook<NtSetInformationFile> setInformationFileHook, IHook<NtQueryInformationFile> queryInformationHook,
-            IHook<SetFilePointer> setFilePointerHook, IHook<CloseHandleDelegate> closeHandleHook)
+            IHook<CloseHandleDelegate> closeHandleHook)
         {
             NtCreateFileHook = createFileHook;
             NtReadFileHook = readFileHook;
             NtSetInformationFileHook = setInformationFileHook;
             NtQueryInformationFileHook = queryInformationHook;
-            SetFilePointerHook = setFilePointerHook;
             CloseHandleHook = closeHandleHook;
         }
 
@@ -33,7 +31,6 @@ namespace modloader
             NtReadFileHook.Activate();
             NtSetInformationFileHook.Activate();
             NtQueryInformationFileHook.Activate();
-            SetFilePointerHook.Activate();
             CloseHandleHook.Activate();
         }
 
@@ -43,7 +40,6 @@ namespace modloader
             NtReadFileHook.Disable();
             NtSetInformationFileHook.Disable();
             NtQueryInformationFileHook.Disable();
-            SetFilePointerHook.Disable();
             CloseHandleHook.Disable();
         }
 
@@ -53,7 +49,6 @@ namespace modloader
             NtReadFileHook.Enable();
             NtSetInformationFileHook.Enable();
             NtQueryInformationFileHook.Enable();
-            SetFilePointerHook.Enable();
             CloseHandleHook.Enable();
         }
     }

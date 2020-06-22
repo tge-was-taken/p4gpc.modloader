@@ -18,5 +18,9 @@ namespace modloader.Configuration
         [DisplayName( "Load directory" )]
         [Description( "Path to the directory files are loaded from." )]
         public string LoadDirectory { get; set; } = "mods";
+
+        [DisplayName( "Sound load directory" )]
+        [Description( "Path to the directory sound files are loaded from." )]
+        public string SoundLoadDirectory { get; set; } = "mods/SND";
     }
 }

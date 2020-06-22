@@ -3,17 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using Amicitia.IO.Streams;
-using modloader.Compression;
 using Reloaded.Mod.Interfaces;
+using modloader.Formats.DwPack;
 using static modloader.Native;
 
-namespace modloader
+namespace modloader.Redirectors.DwPack
 {
-    public unsafe class DwPackAccessRedirector : FileAccessFilter
+    public unsafe class DwPackRedirector : FileAccessFilter
     {
         private class VirtualDwPack
         {
@@ -69,7 +66,7 @@ namespace modloader
                     NewEntry.DataOffset = ( int )mPack.CurrentFileSize;
                     mPack.CurrentFileSize += NewEntry.CompressedSize;
                     if ( mPack.CurrentFileSize >= mPack.MaxFileSize )
-                        logger.WriteLine( $"[modloader:DwPackAccessRedirector] Out of space!!! 4GB offset space is exhausted", logger.ColorRed );
+                        logger.WriteLine( $"[modloader:DwPackRedirector] Out of space!!! 4GB offset space is exhausted", logger.ColorRed );
                 }
 
                 IsRedirected = true;
@@ -77,7 +74,7 @@ namespace modloader
 
             public Stream OpenRead()
                 => new FileStream( RedirectedPath, FileMode.Open, FileAccess.Read, 
-                    FileShare.Read | FileShare.Write | FileShare.Delete, 0x30000, FileOptions.RandomAccess );
+                    FileShare.Read | FileShare.Write | FileShare.Delete, 0x300_000, FileOptions.RandomAccess );
         }
 
         private static readonly Regex sPacFileNameRegex = new Regex(@".+\d{5}.pac", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -88,16 +85,12 @@ namespace modloader
         private VirtualDwPackFile mCachedFile;
         private Stream mCachedFileStream;
 
-        public DwPackAccessRedirector( ILogger logger )
+        public DwPackRedirector( ILogger logger, string loadDirectory )
         {
             mLogger = logger;
             mPacksByHandle = new Dictionary<IntPtr, VirtualDwPack>();
             mPacksByName = new Dictionary<string, VirtualDwPack>( StringComparer.OrdinalIgnoreCase );
-        }
-
-        public void SetLoadDirectory( string path )
-        {
-            mLoadDirectory = path;
+            mLoadDirectory = loadDirectory;
         }
 
         public override bool Accept( string newFilePath )
@@ -415,25 +408,6 @@ namespace modloader
             return result;
         }
 
-        public override uint SetFilePointerImpl( IntPtr hFile, int lDistanceToMove, IntPtr lpDistanceToMoveHigh, uint dwMoveMethod )
-        {
-            const uint INVALID_SET_FILE_POINTER = 0xFFFFFFFF;
-
-            // Thanks Microsoft
-            var result = mHooks.SetFilePointerHook.OriginalFunction( hFile, lDistanceToMove, lpDistanceToMoveHigh, dwMoveMethod );
-            if ( result == INVALID_SET_FILE_POINTER /*|| GetLastError() != 0*/ ) return result;
-
-            var offset = new LARGE_INTEGER() { LowPart = result };
-            var pack = mPacksByHandle[hFile];
-            if ( lpDistanceToMoveHigh != IntPtr.Zero )
-            {
-                offset.HighPart = *( int* )lpDistanceToMoveHigh;
-            }
-
-            pack.FilePointer = offset.QuadPart;
-            return result;
-        }
-
         private void Dump( long offset, uint length, byte* buffer )
         {
             mHooks.Disable();
@@ -442,11 +416,11 @@ namespace modloader
             mHooks.Enable();
         }
 
-        private void Info( string msg ) => mLogger.WriteLine( $"[modloader:DwPackAccessRedirector] I {msg}" );
-        private void Warning( string msg ) => mLogger.WriteLine( $"[modloader:DwPackAccessRedirector] W {msg}", mLogger.ColorYellow );
-        private void Error( string msg ) => mLogger.WriteLine( $"[modloader:DwPackAccessRedirector] E {msg}", mLogger.ColorRed );
+        private void Info( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] I {msg}" );
+        private void Warning( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] W {msg}", mLogger.ColorYellow );
+        private void Error( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] E {msg}", mLogger.ColorRed );
 
         [Conditional( "DEBUG" )]
-        private void Debug( string msg ) => mLogger.WriteLine( $"[modloader:DwPackAccessRedirector] D {msg}", mLogger.ColorGreen );
+        private void Debug( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] D {msg}", mLogger.ColorGreen );
     }
 }

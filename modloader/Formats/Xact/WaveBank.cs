@@ -4,7 +4,7 @@ using System.Runtime.InteropServices.ComTypes;
 using Amicitia.IO;
 using Amicitia.IO.Generics;
 
-namespace modloader.XACT
+namespace modloader.Formats.Xact
 {
     public static class Constants
     {
@@ -18,15 +18,15 @@ namespace modloader.XACT
         //
         // Arbitrary fixed sizes
         //
-        public const int WAVEBANKENTRY_XMASTREAMS_MAX  =        3;   // enough for 5.1 channel audio
-        public const int WAVEBANKENTRY_XMACHANNELS_MAX =       6;   // enough for 5.1 channel audio (cf. XAUDIOCHANNEL_SOURCEMAX)
+        public const int WAVEBANKENTRY_XMASTREAMS_MAX  = 3;   // enough for 5.1 channel audio
+        public const int WAVEBANKENTRY_XMACHANNELS_MAX = 6;   // enough for 5.1 channel audio (cf. XAUDIOCHANNEL_SOURCEMAX)
 
         //
         // DVD data sizes
         //
 
-        public const int WAVEBANK_DVD_SECTOR_SIZE =   2048;
-        public const int WAVEBANK_DVD_BLOCK_SIZE  =   (WAVEBANK_DVD_SECTOR_SIZE * 16);
+        public const int WAVEBANK_DVD_SECTOR_SIZE = 2048;
+        public const int WAVEBANK_DVD_BLOCK_SIZE  = (WAVEBANK_DVD_SECTOR_SIZE * 16);
 
         //
         // Bank alignment presets
@@ -85,7 +85,7 @@ namespace modloader.XACT
 
 
     [Flags]
-    public enum WaveBankFlags
+    public enum WaveBankFlags : uint
     {
         EntryNames = 0x10000,
         Compact = 0x20000,
@@ -169,10 +169,19 @@ namespace modloader.XACT
     [StructLayout( LayoutKind.Sequential, Pack = 1, Size = 52 )]
     public unsafe struct WaveBankHeader
     {
-        public uint           Signature;                        // File signature
-        public uint           Version;                          // Version of the tool that created the file
-        public uint           HeaderVersion;                    // Version of the file format
-        public fixed byte  SegmentsData[(int)WaveBankSegmentIndex.Count * WaveBankRegion.SIZE];    // Segment lookup table
+        public uint Signature; // File signature
+        public uint Version; // Version of the tool that created the file
+        public uint HeaderVersion; // Version of the file format
+        public fixed byte SegmentsBytes[(int)WaveBankSegmentIndex.Count * WaveBankRegion.SIZE];    // Segment lookup table
+
+        public WaveBankRegion* Segments
+        {
+            get
+            {
+                fixed ( byte* pSegmentsBytes = SegmentsBytes )
+                    return ( WaveBankRegion* )pSegmentsBytes;
+            }
+        }
     };
 
     //
@@ -225,6 +234,29 @@ namespace modloader.XACT
                         return 0;
                 }
             }
+
+            set
+            {
+                switch ( FormatTag.Get() )
+                {
+                    case WaveBankMiniFormatTag.PCM:
+                        RawBlockAlign.Set( value );
+                        break;
+                    case WaveBankMiniFormatTag.XMA:
+                        RawBlockAlign.Set( value / 2 );
+                        break;
+                    case WaveBankMiniFormatTag.ADPCM:
+                        RawBlockAlign.Set( ( value / Channels.Get() ) - 22 );
+                        break;
+                    case WaveBankMiniFormatTag.WMA:
+                        var temp =  Array.IndexOf( Constants.WMA_BLOCK_ALIGN, value );
+                        if ( temp != -1 )
+                            RawBlockAlign.Set( temp );
+                        else
+                            RawBlockAlign.Set( value );
+                        break;
+                }
+            }
         }
 
         public int AverageBytesPerSecond
@@ -271,7 +303,7 @@ namespace modloader.XACT
     // Entry meta-data
     //
 
-    [StructLayout(LayoutKind.Explicit, Pack = 1, Size = 4)]
+    [StructLayout( LayoutKind.Explicit, Pack = 1, Size = 4 )]
     public struct WaveBankEntryFlagsAndDuration
     {
         public const int SIZE = 4;
@@ -282,7 +314,7 @@ namespace modloader.XACT
     }
 
     [StructLayout( LayoutKind.Sequential, Pack = 1, Size = 24 )]
-    public struct WAVEBANKENTRY
+    public struct WaveBankEntry
     {
         public WaveBankEntryFlagsAndDuration FlagsAndDuration;
         public WaveBankMiniWaveFormat  Format;         // Entry format.
@@ -298,16 +330,20 @@ namespace modloader.XACT
     {
         [FieldOffset(0)] public BitField<uint, N0, N20> dwOffset; // Data offset, in sectors
         [FieldOffset(0)] public BitField<uint, N21, N31> dwLengthDeviation; // Data length deviation, in bytes
+
+        public long CalculatedOffset
+            => dwOffset * Constants.WAVEBANK_DVD_SECTOR_SIZE;
     };
 
     //
     // Bank data segment
     //
+    [StructLayout( LayoutKind.Sequential, Pack = 1, Size = 96 )]
     public unsafe struct WaveBankData
     {
         public const int BANKNAME_LENGTH = 64;
 
-        public uint Flags;                                // Bank flags
+        public WaveBankFlags Flags;                                // Bank flags
         public uint EntryCount;                           // Number of entries in the bank
         public fixed byte BankName[BANKNAME_LENGTH];   // Bank friendly name
         public uint EntryMetaDataElementSize;             // Size of each entry meta-data element, in bytes

@@ -10,7 +10,7 @@
   "ModR2RManagedDll64": "x64/modloader.dll",
   "ModNativeDll32": "",
   "ModNativeDll64": "",
-  "ModDependencies": [ "reloaded.sharedlib.hooks" ],
+  "ModDependencies": [ "reloaded.sharedlib.hooks", "reloaded.universal.steamhook" ],
   "OptionalDependencies": [],
   "SupportedAppId": [ "p4g.exe" ]
 }
