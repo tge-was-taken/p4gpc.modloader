@@ -26,7 +26,7 @@ namespace modloader
             mHooks = hooks;
 
             Console.OutputEncoding = EncodingCache.ShiftJIS;
-            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.0.0" );
+            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.1.0" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );
 
