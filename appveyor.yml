@@ -1,0 +1,19 @@
+version: 1.0.{build}
+image: Visual Studio 2019
+clone_folder: c:\p4gpc.modloader
+environment:
+  RELOADEDII: c:\p4gpc.modloader\build
+build_script:
+- cmd: >-
+    git submodule update --init --recursive
+
+    dotnet restore
+
+    msbuild modloader.sln /p:Configuration=Debug /p:OutputPath=c:\p4gpc.modloader\build\debug
+
+    msbuild modloader.sln /p:Configuration=Release /p:OutputPath=c:\p4gpc.modloader\build\release
+artifacts:
+- path: build/release
+  name: release
+- path: build/debug
+  name: debug
