@@ -1,3 +1,5 @@
+[![Build status](https://ci.appveyor.com/api/projects/status/n0gyja1foykuwmbo?svg=true)](https://ci.appveyor.com/project/TGEnigma/p4gpc-modloader)
+
 # p4gpc.modloader
 Mod loader for the Steam version of Persona 4 Golden
 
