@@ -35,8 +35,6 @@ namespace modloader.Redirectors.Xact
 
         public bool Redirect( string filePath )
         {
-            Debugger.Launch();
-
             var fileSize = 0L;
             using ( var stream = new FileStream( filePath, FileMode.Open, FileAccess.Read, FileShare.Read ) )
                 fileSize = stream.Length;

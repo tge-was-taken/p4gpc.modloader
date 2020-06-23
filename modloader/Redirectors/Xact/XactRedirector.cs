@@ -172,6 +172,7 @@ namespace modloader.Redirectors.Xact
                     {
                         if ( mCache[j].Entry == entry )
                         {
+                            // Found entry in cache, increase score
                             mCache[j].Hit();
                             Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} loaded from cache" );
                             redirectedStream = mCache[j].Stream;
@@ -179,6 +180,7 @@ namespace modloader.Redirectors.Xact
                         }
                         else
                         {
+                            // Entry is not the one we're looking for, so we lower its score
                             var cacheEntry = mCache[j].Entry;
                             if ( mCache[j].Miss() ) Debug( $"{waveBank.FileName} Hnd: {handle} Index: {j} {cacheEntry.CueName} removed from cache" );
                         }
@@ -186,27 +188,23 @@ namespace modloader.Redirectors.Xact
 
                     if (redirectedStream == null)
                     {
+                        // Wasn't found in cache
                         Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} added to cache" );
                         redirectedStream = entry.OpenRead();
                         for ( int j = 0; j < mCache.Length; j++ )
-                            mCache[j] = new CacheEntry() { Entry = entry, Score = 1, Stream = redirectedStream };
+                        {
+                            if ( mCache[j].Entry == null )
+                            {
+                                mCache[j] = new CacheEntry() { Entry = entry, Score = 1, Stream = redirectedStream };
+                                break;;
+                            }
+                        }
                     }
 
                     // Read from redirected file into the buffer
                     try
                     {
-
-                        try
-                        {
-                            redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
-                        }
-                        catch ( ObjectDisposedException )
-                        {
-                            Error( "Stream is disposed!!!!" );
-                            redirectedStream = entry.OpenRead();
-                            redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
-                        }
-
+                        redirectedStream.Seek( fileDataOffset, SeekOrigin.Begin );
                         var readBytes = redirectedStream.Read( new Span<byte>( ( void* )buffer, ( int )length ) );
                         SetBytesRead( handle, ( int )waveBank.FilePointer, ( int )length, ref ioStatus );
 
