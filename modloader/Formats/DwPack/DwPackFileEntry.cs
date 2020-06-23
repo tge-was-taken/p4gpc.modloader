@@ -1,15 +1,19 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using modloader.Utilities;
 
 namespace modloader.Formats.DwPack
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 0x120)]
     public unsafe struct DwPackFileEntry
     {
+        public const int PATH_LENGTH = 260;
+
         public int Field00;
         public int Id;
-        public fixed byte PathBytes[260];
+        public fixed byte PathBytes[PATH_LENGTH];
         public int Field104;
         public int CompressedSize;
         public int UncompressedSize;
@@ -21,12 +25,15 @@ namespace modloader.Formats.DwPack
             get
             {
                 fixed ( byte* pathBytes = PathBytes )
-                    return new string( ( sbyte* )pathBytes );
+                    return EncodingCache.ShiftJIS.GetString( NativeHelper.GetStringSpan( pathBytes ) );
             }
             set
             {
                 fixed ( byte* pathBytes = PathBytes )
-                    Encoding.ASCII.GetBytes( value.AsSpan(), new Span<byte>( ( void* )pathBytes, 260 ) );
+                {
+                    Unsafe.InitBlock( pathBytes, 0, PATH_LENGTH );
+                    EncodingCache.ShiftJIS.GetBytes( value.AsSpan(), new Span<byte>( ( void* )pathBytes, PATH_LENGTH ) );
+                }
             }
         }
     }

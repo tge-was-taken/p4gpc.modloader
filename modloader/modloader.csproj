@@ -59,8 +59,4 @@
     <NativeLibs Remove="P4GPCModLoader.cs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Utilities\" />
-  </ItemGroup>
-
 </Project>

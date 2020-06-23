@@ -1,9 +1,10 @@
-﻿using System.IO;
-using modloader.Configuration;
+﻿using modloader.Configuration;
 using Reloaded.Mod.Interfaces;
 
 using modloader.Redirectors.DwPack;
 using modloader.Redirectors.Xact;
+using System;
+using modloader.Utilities;
 
 namespace modloader
 {
@@ -24,6 +25,7 @@ namespace modloader
             mConfiguration = configuration;
             mHooks = hooks;
 
+            Console.OutputEncoding = EncodingCache.ShiftJIS;
             mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.0.0" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );

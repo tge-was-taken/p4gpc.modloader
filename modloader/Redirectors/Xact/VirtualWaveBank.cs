@@ -31,7 +31,6 @@ namespace modloader.Redirectors.Xact
 
         public void LoadFromFile( string filePath )
         {
-            Debugger.Launch();
             FilePath = filePath;
             FileName = Path.GetFileNameWithoutExtension( filePath );
             FilePointer = 0;
