@@ -3,6 +3,11 @@
 # p4gpc.modloader
 Mod loader for the Steam version of Persona 4 Golden
 
+# Download
+Stable releases can be found [here](https://github.com/TGEnigma/p4gpc.modloader/releases/).
+
+Development releases can be found [here](https://ci.appveyor.com/project/TGEnigma/p4gpc-modloader/build/artifacts).
+
 # Dependencies
 * Latest .NET Core Runtime: https://dotnet.microsoft.com/download/dotnet-core/current/runtime
 * Reloaded II by Sewer56: https://github.com/Reloaded-Project/Reloaded-II/releases
