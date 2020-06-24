@@ -634,5 +634,8 @@ namespace modloader
         [SuppressUnmanagedCodeSecurity]
         [DllImport("kernel32.dll")]
         public static extern uint GetLastError();
+
+        [DllImport( "kernel32.dll" )]
+        public static extern IntPtr GetConsoleWindow();
     }
 }
