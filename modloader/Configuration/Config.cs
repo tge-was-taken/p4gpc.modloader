@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Generic;
+using System.ComponentModel;
 using modloader.Configuration.Implementation;
 
 namespace modloader.Configuration
@@ -15,12 +16,12 @@ namespace modloader.Configuration
         */
 
 
-        [DisplayName( "Load directory" )]
-        [Description( "Path to the directory files are loaded from." )]
-        public string LoadDirectory { get; set; } = "mods";
+        [DisplayName( "Mods directory" )]
+        [Description( "Path to the directory mods are loaded from." )]
+        public string ModsDirectory { get; set; } = "mods";
 
-        [DisplayName( "Sound load directory" )]
-        [Description( "Path to the directory sound files are loaded from." )]
-        public string SoundLoadDirectory { get; set; } = "mods/SND";
+        [DisplayName( "Enabled mods" )]
+        [Description( "List of mods that should be loaded in order (first mod takes priority)" )]
+        public List<string> EnabledMods { get; set; }
     }
 }

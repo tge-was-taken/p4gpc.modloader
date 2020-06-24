@@ -5,6 +5,7 @@ using modloader.Redirectors.DwPack;
 using modloader.Redirectors.Xact;
 using System;
 using modloader.Utilities;
+using modloader.Mods;
 
 namespace modloader
 {
@@ -25,17 +26,21 @@ namespace modloader
             mConfiguration = configuration;
             mHooks = hooks;
 
+            // Init
             Console.OutputEncoding = EncodingCache.ShiftJIS;
             mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.1.0" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );
 
+            // Load mods
+            var modDb = new ModDb( mConfiguration.ModsDirectory, mConfiguration.EnabledMods );
+
             // DW_PACK (PAC) redirector
-            mDwPackRedirector = new DwPackRedirector( logger, mConfiguration.LoadDirectory );
+            mDwPackRedirector = new DwPackRedirector( logger, modDb );
             mFileAccessServer.AddFilter( mDwPackRedirector );
 
             // XACT (XWB, XSB) redirector
-            mXactRedirector = new XactRedirector( logger, mConfiguration.SoundLoadDirectory );
+            mXactRedirector = new XactRedirector( logger, modDb );
             mFileAccessServer.AddFilter( mXactRedirector );
 
             mFileAccessServer.Activate();

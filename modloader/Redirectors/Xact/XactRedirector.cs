@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using modloader.Formats.Xact;
+using modloader.Mods;
 using Reloaded.Mod.Interfaces;
 using static modloader.Native;
 
@@ -39,15 +40,15 @@ namespace modloader.Redirectors.Xact
         }
 
         private readonly ILogger mLogger;
-        private readonly string mLoadDirectory;
+        private readonly ModDb mModDb;
         private Dictionary<IntPtr, VirtualWaveBank> mWaveBankByHandle;
         private Dictionary<string, VirtualWaveBank> mWaveBankByName;
         private readonly CacheEntry[] mCache = new CacheEntry[4];
 
-        public XactRedirector(ILogger logger, string loadDirectory)
+        public XactRedirector(ILogger logger, ModDb modDb)
         {
             mLogger = logger;
-            mLoadDirectory = loadDirectory;
+            mModDb = modDb;
             mWaveBankByName = new Dictionary<string, VirtualWaveBank>();
             mWaveBankByHandle = new Dictionary<IntPtr, VirtualWaveBank>();
         }
@@ -80,11 +81,16 @@ namespace modloader.Redirectors.Xact
 
                 for ( int i = 0; i < waveBank.Entries.Count; i++ )
                 {
-                    var redirectFilePath = Path.Combine(mLoadDirectory, waveBank.FileName, $"{i}.raw");
-                    if ( File.Exists( redirectFilePath ) )
+                    foreach ( var mod in mModDb.Mods )
                     {
-                        if ( waveBank.Entries[i].Redirect( redirectFilePath ) )
-                            Info( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirected to {redirectFilePath}" );
+                        var redirectFilePath = Path.Combine(Path.Combine(mod.LoadDirectory, "SND"), waveBank.FileName, $"{i}.raw");
+                        if ( File.Exists( redirectFilePath ) )
+                        {
+                            if ( waveBank.Entries[i].Redirect( redirectFilePath ) )
+                                Info( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirected to {redirectFilePath}" );
+
+                            break;
+                        }
                     }
                 }
 

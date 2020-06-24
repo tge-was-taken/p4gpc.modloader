@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Reloaded.Mod.Interfaces;
 using modloader.Formats.DwPack;
 using static modloader.Native;
+using modloader.Mods;
 
 namespace modloader.Redirectors.DwPack
 {
@@ -79,18 +80,18 @@ namespace modloader.Redirectors.DwPack
 
         private static readonly Regex sPacFileNameRegex = new Regex(@".+\d{5}.pac", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private readonly ILogger mLogger;
+        private readonly ModDb mModDb;
         private readonly Dictionary<IntPtr, VirtualDwPack> mPacksByHandle;
         private readonly Dictionary<string, VirtualDwPack> mPacksByName;
-        private string mLoadDirectory;
         private VirtualDwPackFile mCachedFile;
         private Stream mCachedFileStream;
 
-        public DwPackRedirector( ILogger logger, string loadDirectory )
+        public DwPackRedirector( ILogger logger, ModDb modDb )
         {
             mLogger = logger;
+            mModDb = modDb;
             mPacksByHandle = new Dictionary<IntPtr, VirtualDwPack>();
             mPacksByName = new Dictionary<string, VirtualDwPack>( StringComparer.OrdinalIgnoreCase );
-            mLoadDirectory = loadDirectory;
         }
 
         public override bool Accept( string newFilePath )
@@ -208,21 +209,25 @@ namespace modloader.Redirectors.DwPack
 
                     var file = pack.Files[fileIndex] = new VirtualDwPackFile( pack, entry );
 
-                    var redirectedFilePath = Path.Combine(mLoadDirectory, pack.FileName, entry->Path);
-                    if ( File.Exists( redirectedFilePath ) )
+                    foreach ( var mod in mModDb.Mods )
                     {
-                        file.Redirect( mLogger, redirectedFilePath );
-                        *entry = pack.Files[fileIndex].NewEntry;
+                        var redirectedFilePath = Path.Combine(mod.LoadDirectory, pack.FileName, entry->Path);
+                        if ( File.Exists( redirectedFilePath ) )
+                        {
+                            file.Redirect( mLogger, redirectedFilePath );
+                            *entry = pack.Files[fileIndex].NewEntry;
 
-                        //Dump( effOffset, length, buffer );
-                        Debug( $"{pack.FileName} Hnd: {handle} {entry->Path} Redirected to {redirectedFilePath}" );
-                        Debug( $"Patched entry: Field00: {entry->Field00} Id: {entry->Id} Field104: {entry->Field104} " +
-                            $"CompressedSize: {entry->CompressedSize:X8} UncompressedSize: {entry->UncompressedSize:X8} " +
-                            $"Flags: {entry->Flags} DataOffset: {pack.DataStartOffset + entry->DataOffset:X8}" );
-                    }
-                    else
-                    {
-                        Debug( $"No redirection for {entry->Path} because {redirectedFilePath} does not exist." );
+                            Debug( $"{pack.FileName} Hnd: {handle} {entry->Path} Redirected to {redirectedFilePath}" );
+                            Debug( $"Patched entry: Field00: {entry->Field00} Id: {entry->Id} Field104: {entry->Field104} " +
+                                $"CompressedSize: {entry->CompressedSize:X8} UncompressedSize: {entry->UncompressedSize:X8} " +
+                                $"Flags: {entry->Flags} DataOffset: {pack.DataStartOffset + entry->DataOffset:X8}" );
+
+                            break;
+                        }
+                        else
+                        {
+                            Debug( $"No redirection for {entry->Path} because {redirectedFilePath} does not exist." );
+                        }
                     }
                 }
                 else
