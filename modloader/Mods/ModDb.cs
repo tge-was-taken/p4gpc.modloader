@@ -25,7 +25,7 @@ namespace modloader.Mods
             }
 
             mMods = mMods.OrderBy( x => modLoadList.IndexOf( x.Name ) ).ToList();
-            mMods.Add( new Mod( "Global", directoryPath ) );
+            mMods.Insert( 0, new Mod( "<global>", directoryPath ) );
         }
     }
 }
