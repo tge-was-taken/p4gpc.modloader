@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using Amicitia.IO;
 using modloader.Formats.Xact;
 using Reloaded.Mod.Interfaces;
 
@@ -210,8 +211,12 @@ namespace modloader.Redirectors.Xact
                 if ( txth.LoopStart.HasValue && !txth.LoopEnd.HasValue )
                     txth.LoopEnd = txth.Duration;
 
-                // Set settings
-                Native->FlagsAndDuration.Duration.Set( ( uint )txth.Duration );
+                // Set settings      
+                var durationAligned = AlignmentHelper.Align( txth.Duration.Value, 128 );
+                if ( durationAligned > txth.Duration )
+                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} Duration is not aligned to a multiple of 128, it might not play correctly ingame!", mLogger.ColorRed );
+
+                Native->FlagsAndDuration.Duration.Set( ( uint )durationAligned );
                 Native->Format.FormatTag.Set( txth.FormatTag.Value );
                 Native->Format.RawBitsPerSample.Set( txth.BitDepth.GetValueOrDefault( 0 ) );
                 Native->Format.Channels.Set( txth.Channels.Value );
@@ -220,8 +225,19 @@ namespace modloader.Redirectors.Xact
 
                 if ( txth.LoopStart.HasValue )
                 {
-                    Native->LoopRegion.StartSample = txth.LoopStart.Value;
-                    Native->LoopRegion.TotalSamples = txth.LoopEnd.Value - Native->LoopRegion.StartSample;
+                    var startSampleAligned = AlignmentHelper.Align( txth.LoopStart.Value, 128 );
+                    var endSampleAligned = AlignmentHelper.Align( txth.LoopEnd.Value, 128 );
+                    if ( endSampleAligned > txth.Duration )
+                    {
+                        mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop start and/or end sample is not aligned to a multiple of 128, it will not loop correctly ingame!", mLogger.ColorRed );
+                    }
+                    else
+                    {
+                        mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop start and/or end sample is not aligned to a multiple of 128, but was able to auto correct it", mLogger.ColorRed );
+                    }
+
+                    Native->LoopRegion.StartSample = startSampleAligned;
+                    Native->LoopRegion.TotalSamples = endSampleAligned;
                 }
                 else
                 {

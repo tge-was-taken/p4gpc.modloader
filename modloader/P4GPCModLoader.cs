@@ -1,6 +1,5 @@
 ﻿using modloader.Configuration;
 using Reloaded.Mod.Interfaces;
-using Reloaded.Mod.Loader.Logging.Init;
 
 using modloader.Redirectors.DwPack;
 using modloader.Redirectors.Xact;

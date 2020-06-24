@@ -22,6 +22,6 @@ namespace modloader.Configuration
 
         [DisplayName( "Enabled mods" )]
         [Description( "List of mods that should be loaded in order (first mod takes priority)" )]
-        public List<string> EnabledMods { get; set; }
+        public List<string> EnabledMods { get; set; } = new List<string>();
     }
 }
