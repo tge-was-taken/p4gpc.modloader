@@ -237,7 +237,7 @@ namespace modloader.Redirectors.Xact
                     }
 
                     Native->LoopRegion.StartSample = startSampleAligned;
-                    Native->LoopRegion.TotalSamples = endSampleAligned;
+                    Native->LoopRegion.TotalSamples = endSampleAligned - startSampleAligned;
                 }
                 else
                 {
