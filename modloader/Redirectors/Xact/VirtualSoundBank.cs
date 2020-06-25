@@ -62,8 +62,8 @@ namespace modloader.Redirectors.Xact
             var p = Native.CueNames;
             for ( int i = 0; i < cueNames.Length; i++ )
             {
-                while ( *p++ != 0 ) ;
                 cueNames[i] = new string( ( sbyte* )p );
+                while ( *p++ != 0 ) ;
             }
 
             return cueNames;
