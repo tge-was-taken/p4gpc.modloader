@@ -8,6 +8,7 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using modloader.Formats.Xact;
 using modloader.Mods;
+using modloader.Utilities;
 using Reloaded.Mod.Interfaces;
 using static modloader.Native;
 
@@ -41,9 +42,11 @@ namespace modloader.Redirectors.Xact
 
         private readonly ILogger mLogger;
         private readonly ModDb mModDb;
-        private Dictionary<IntPtr, VirtualWaveBank> mWaveBankByHandle;
-        private Dictionary<string, VirtualWaveBank> mWaveBankByName;
+        private readonly Dictionary<IntPtr, VirtualWaveBank> mWaveBankByHandle;
+        private readonly Dictionary<string, VirtualWaveBank> mWaveBankByName;
         private readonly CacheEntry[] mCache = new CacheEntry[4];
+        private readonly Dictionary<IntPtr, VirtualSoundBank> mSoundBankByHandle;
+        private readonly Dictionary<string, VirtualSoundBank> mSoundBankByName;
 
         public XactRedirector(ILogger logger, ModDb modDb)
         {
@@ -51,16 +54,20 @@ namespace modloader.Redirectors.Xact
             mModDb = modDb;
             mWaveBankByName = new Dictionary<string, VirtualWaveBank>();
             mWaveBankByHandle = new Dictionary<IntPtr, VirtualWaveBank>();
+            mSoundBankByName = new Dictionary<string, VirtualSoundBank>();
+            mSoundBankByHandle = new Dictionary<IntPtr, VirtualSoundBank>();
         }
 
         public override bool Accept( string newFilePath )
         {
-            return Path.GetExtension( newFilePath ).Equals( ".xwb", StringComparison.OrdinalIgnoreCase );
+            var ext = Path.GetExtension( newFilePath );
+            return ext.Equals( ".xwb", StringComparison.OrdinalIgnoreCase ) ||
+                   ext.Equals( ".xsb", StringComparison.OrdinalIgnoreCase );             
         }
 
         public override bool Accept( IntPtr handle )
         {
-            return mWaveBankByHandle.ContainsKey( handle );
+            return mWaveBankByHandle.ContainsKey( handle ) || mSoundBankByHandle.ContainsKey( handle );
         }
 
         private void Read(IntPtr handle, long offset, int length, byte* buffer)
@@ -72,42 +79,108 @@ namespace modloader.Redirectors.Xact
         public override Native.NtStatus NtCreateFileImpl( string newFilePath, out IntPtr handle, FileAccess access, ref Native.OBJECT_ATTRIBUTES objectAttributes, 
             ref Native.IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
-            if ( !mWaveBankByName.TryGetValue( newFilePath, out var waveBank ) )
+            var fileName = Path.GetFileNameWithoutExtension( newFilePath );
+            var ext = Path.GetExtension( newFilePath );
+            var isWaveBank = ext.Equals( ".xwb", StringComparison.OrdinalIgnoreCase );
+            VirtualWaveBank waveBank = null;
+            VirtualSoundBank soundBank = null;
+
+            if ( isWaveBank && !mWaveBankByName.TryGetValue( fileName, out waveBank ) )
             {
-                mWaveBankByName[newFilePath] = waveBank = new VirtualWaveBank( mLogger );
+                // Try get sound bank for cue names
+                mSoundBankByName.TryGetValue( fileName, out soundBank );
+
+                // Wave bank
+                mWaveBankByName[fileName] = waveBank = new VirtualWaveBank( mLogger );
                 mHooks.Disable();
                 waveBank.LoadFromFile( newFilePath );
                 mHooks.Enable();
-
-                for ( int i = 0; i < waveBank.Entries.Count; i++ )
-                {
-                    foreach ( var mod in mModDb.Mods )
-                    {
-                        var redirectFilePath = Path.Combine(Path.Combine(mod.LoadDirectory, "SND"), waveBank.FileName, $"{i}.raw");
-                        if ( File.Exists( redirectFilePath ) )
-                        {
-                            if ( waveBank.Entries[i].Redirect( redirectFilePath ) )
-                                Info( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirected to {redirectFilePath}" );
-
-                            break;
-                        }
-                    }
-                }
-
+                ProcessWaveBankEntries( newFilePath, soundBank, waveBank );
                 Debug( $"{newFilePath} registered" );
+            }
+            else if ( !mSoundBankByName.TryGetValue( fileName, out soundBank ))
+            {
+                // Sound bank
+                mSoundBankByName[fileName] = soundBank = new VirtualSoundBank( mLogger );
+                mHooks.Disable();
+                soundBank.LoadFromFile( newFilePath );
+                mHooks.Enable();
+
+                // Find associated wave bank
+                if (!mWaveBankByName.TryGetValue(soundBank.Native.WaveBankNames[0].Name, out waveBank))
+                {
+                    Error( $"{newFilePath} Can't find wavebank!" );
+                }
+                else
+                {
+                    ProcessWaveBankEntries( newFilePath, soundBank, waveBank );
+                }
             }
 
             var result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, 
                 share, createDisposition, createOptions, eaBuffer, eaLength );
 
-            mWaveBankByHandle.Add( handle, waveBank );
-            Debug( $"{waveBank.FileName} Hnd {handle} registered" );
+            if ( isWaveBank )
+            {
+                mWaveBankByHandle.Add( handle, waveBank );
+                Debug( $"{waveBank.FileName} Hnd {handle} registered" );
+            }
+            else
+            {
+                mSoundBankByHandle.Add( handle, soundBank );
+            }
+
+
             return result;
+        }
+
+        private void ProcessWaveBankEntries( string filePath, VirtualSoundBank soundBank, VirtualWaveBank waveBank )
+        {
+            bool TryRedirectEntry(Mod mod, int i, string fileName)
+            {
+                var redirectFilePath = Path.Combine(Path.Combine(mod.LoadDirectory, "SND"), waveBank.FileName, fileName);
+                if ( File.Exists( redirectFilePath ) )
+                {
+                    if ( waveBank.Entries[i].Redirect( redirectFilePath ) )
+                        Info( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirected to {redirectFilePath}" );
+                    else
+                        Error( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirecting to {redirectFilePath} failed!" );
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            for ( int i = 0; i < waveBank.Entries.Count; i++ )
+            {
+                if ( soundBank != null )
+                {
+                    waveBank.Entries[i].CueName = soundBank.GetTrackCueName( i, 0 );
+                }
+
+                if ( waveBank.Entries[i].IsRedirected ) continue;
+
+                foreach ( var mod in mModDb.Mods )
+                {
+                    // Try redirect from wave/track index
+                    if ( TryRedirectEntry( mod, i, $"{i}.raw" ) ) 
+                        break;
+
+                    if ( waveBank.Entries[i].CueName != null )
+                    {
+                        // Try redirect from cue name
+                        if ( TryRedirectEntry( mod, i, waveBank.Entries[i].CueName + ".raw" ) )
+                            break;
+                    }
+                }
+            }
         }
 
         public override bool CloseHandleImpl( IntPtr handle )
         {
             mWaveBankByHandle.Remove( handle );
+            mSoundBankByHandle.Remove( handle );
             return mHooks.CloseHandleHook.OriginalFunction( handle );
         }
 
@@ -238,7 +311,9 @@ namespace modloader.Redirectors.Xact
         public override unsafe Native.NtStatus NtReadFileImpl( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext, ref Native.IO_STATUS_BLOCK ioStatus, 
             byte* buffer, uint length, Native.LARGE_INTEGER* byteOffset, IntPtr key )
         {
-            var waveBank = mWaveBankByHandle[handle];
+            if ( !mWaveBankByHandle.TryGetValue( handle, out var waveBank ) )
+                return mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
+
             var offset = waveBank.FilePointer;
             var reqOffset = ( byteOffset != null || ( byteOffset != null && byteOffset->HighPart == -1 && byteOffset->LowPart == FILE_USE_FILE_POINTER_POSITION )) ?
                 byteOffset->QuadPart : -1;
@@ -303,9 +378,11 @@ namespace modloader.Redirectors.Xact
         {
             if ( fileInformationClass == FileInformationClass.FilePositionInformation )
             {
-                var waveBank = mWaveBankByHandle[hfile];
-                waveBank.FilePointer = *( long* )fileInformation;
-                Debug( $"{waveBank.FileName} Hnd: {hfile} SetFilePointer -> 0x{waveBank.FilePointer:X8}" );
+                if ( mWaveBankByHandle.TryGetValue( hfile, out var waveBank ) )
+                {
+                    waveBank.FilePointer = *( long* )fileInformation;
+                    Debug( $"{waveBank.FileName} Hnd: {hfile} SetFilePointer -> 0x{waveBank.FilePointer:X8}" );
+                }
             }
             else
             {

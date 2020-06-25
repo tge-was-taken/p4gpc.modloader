@@ -2,10 +2,10 @@
 using System.Runtime.InteropServices;
 using modloader.Formats.Xact;
 
-namespace modloader.Redirectors.Xact
+namespace modloader.Formats.Xact
 {
     [StructLayout( LayoutKind.Sequential, Pack = 1 )]
-    public unsafe struct NativeWaveBank : IDisposable
+    public unsafe struct WaveBankPtr : IDisposable
     {
         public byte* Ptr;
         public WaveBankHeader* Header => ( WaveBankHeader* )Ptr;
@@ -16,7 +16,7 @@ namespace modloader.Redirectors.Xact
         public byte* EntryNames => ( byte* )( Ptr + Header->Segments[( int )WaveBankSegmentIndex.EntryNames].Offset );
         public byte* EntryWaveData => ( byte* )( Ptr + Header->Segments[( int )WaveBankSegmentIndex.EntryWaveData].Offset );
 
-        public NativeWaveBank( byte* ptr )
+        public WaveBankPtr( byte* ptr )
         {
             Ptr = ptr;
         }

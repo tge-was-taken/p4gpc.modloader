@@ -18,7 +18,7 @@ namespace modloader.Redirectors.Xact
         public WaveBankEntryCompact* NativeCompact => ( WaveBankEntryCompact* )NativePtr;
         public bool IsCompact => ( WaveBank.Native.Data->Flags & WaveBankFlags.Compact ) != 0;
         public int Index { get; private set; }
-        public string CueName { get; private set; }
+        public string CueName { get; set; }
 
         public bool IsRedirected { get; private set; }
         public string FilePath { get; private set; }
@@ -142,7 +142,6 @@ namespace modloader.Redirectors.Xact
                                     txth.BitDepth = WaveBankMiniFormatBitDepth._8;
                                     break;
 
-                                case "XMA1":
                                 case "XMA2":
                                     txth.FormatTag = WaveBankMiniFormatTag.XMA;
                                     break;
@@ -151,7 +150,7 @@ namespace modloader.Redirectors.Xact
                                     txth.FormatTag = WaveBankMiniFormatTag.ADPCM;
                                     break;
 
-                                case "WMA":
+                                case "XWMA":
                                     txth.FormatTag = WaveBankMiniFormatTag.WMA;
                                     break;
 
