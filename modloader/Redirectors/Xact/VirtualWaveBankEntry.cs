@@ -235,7 +235,6 @@ namespace modloader.Redirectors.Xact
                 Native->Format.SamplesPerSecond.Set( txth.SampleRate.Value );
                 Native->Format.CalculatedBlockAlign = txth.Interleave.Value;
 
-                Debugger.Launch();
                 var durationAligned = WaveBankFormatHelper.AlignSamples( Native->Format.FormatTag.Get(), txth.Duration.Value, 
                     Native->Format.CalculatedBlockAlign, Native->Format.Channels );
 
