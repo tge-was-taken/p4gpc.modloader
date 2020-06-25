@@ -9,7 +9,9 @@ Stable releases can be found [here](https://github.com/TGEnigma/p4gpc.modloader/
 Development releases can be found [here](https://ci.appveyor.com/project/TGEnigma/p4gpc-modloader/build/artifacts).
 
 # Dependencies
-* Latest .NET Core Runtime: https://dotnet.microsoft.com/download/dotnet-core/current/runtime
+* Windows 7/8.1/10 with latest updates
+* .NET Core 3.1 Desktop Runtime x64 AND x86
+* Visual C++ Redist 2015/17/19 (x64) and (x86)
 * Reloaded II by Sewer56: https://github.com/Reloaded-Project/Reloaded-II/releases
 
 # Building
@@ -45,12 +47,14 @@ To replace title\logo.bin inside data00003.pac for example, you would place it a
 ## XWB file replacement
 Modified files are placed in a folder named after the XWB file inside the 'SND' folder inside the mod folder. The mods are located in the "mods" folder in P4G installation directory by default.
 
-Sound replacements consist out of a RAW file and a TXTH file. The RAW file contains the raw, unformatted audio data whilst the TXTH is a text based format that describes how the data should be loaded. 
+Sound (track) replacements consist out of a RAW file and a TXTH file. The RAW file contains the raw, unformatted audio data whilst the TXTH is a text based format that describes how the data should be loaded. 
 TXTH is supported by vgmstream, and can be used by playing the RAW file (make sure the TXTH file name is <filename>.raw.txth). Use this to test if the audio plays correctly!
 
 A tool such as [this one](https://github.com/jpmac26/P4G_PC_Music_Converter) can be used to create these files.
 
-To replace wave index 20 (base 0, title screen bgm) inside BGM.XWB, you would place the RAW file at "(p4g install path)\mods\(mod name)\SND\BGM\20.raw", and the TXTH file at "(p4g install path)\mods\(mod name)\SND\BGM\20.raw.txth".
+Tracks can be replaced by either their cue name or their index:
+* To replace BGM055 (cue name, main battle theme) inside BGM.XWB, you would place the the RAW file at "(p4g install path)\mods\(mod name)\SND\BGM\BGM055.raw", and the TXTH file at "(p4g install path)\mods\(mod name)\SND\BGM\BGM055.raw.txth".
+* To replace track index 20 (base 0, title screen bgm) inside BGM.XWB, you would place the RAW file at "(p4g install path)\mods\(mod name)\SND\BGM\20.raw", and the TXTH file at "(p4g install path)\mods\(mod name)\SND\BGM\20.raw.txth".
 
 ### Technical info
 The RAW file contains the raw PCM data, which would be the contents of the WAV 'data' chunk.
