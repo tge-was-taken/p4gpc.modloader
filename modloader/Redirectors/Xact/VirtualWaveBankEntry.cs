@@ -36,6 +36,12 @@ namespace modloader.Redirectors.Xact
 
         public bool Redirect( string filePath )
         {
+            if ( IsCompact )
+            {
+                mLogger.WriteLine( $"[modloader:XactRedirector] TODO: Compact wave format not implemented, unable to redirect to {filePath}", mLogger.ColorRed );
+                return false;
+            }
+
             var fileSize = 0L;
             using ( var stream = new FileStream( filePath, FileMode.Open, FileAccess.Read, FileShare.Read ) )
                 fileSize = stream.Length;
@@ -61,11 +67,19 @@ namespace modloader.Redirectors.Xact
 
             if ( !IsCompact )
             {
-                Native->PlayRegion.Length = ( int )fileSize;
+                var originalLength = Native->PlayRegion.Length;
 
-                if ( fileSize > Native->PlayRegion.Length )
+                // Try to recalculate the actual size based on the duration
+                if (!WaveBankFormatHelper.TryGetSamplesToByteOffset( Native->Format.FormatTag.Get(), Native->Format.BitsPerSample.Get(), Native->FlagsAndDuration.Duration, 
+                    Native->Format.CalculatedBlockAlign, Native->Format.Channels, out Native->PlayRegion.Length ))
                 {
-                    // Play region 
+                    // In case we can't, just accept the file size
+                    Native->PlayRegion.Length = (int)fileSize;
+                }
+
+                if ( Native->PlayRegion.Length > originalLength )
+                {
+                    // If the new size exceeds that of the old, allocate new memory for it
                     Native->PlayRegion.Offset = ( int )( WaveBank.AllocateSectionMemory( WaveBankSegmentIndex.EntryWaveData, ( int )Native->PlayRegion.Length ) );
                 }
             }
@@ -209,41 +223,50 @@ namespace modloader.Redirectors.Xact
                 }
 
                 if ( txth.LoopStart.HasValue && !txth.LoopEnd.HasValue )
+                {
+                    // Set end loop sample to the duration if it is somehow missing
                     txth.LoopEnd = txth.Duration;
+                }
 
-                // Set settings      
-                var durationAligned = AlignmentHelper.Align( txth.Duration.Value, 128 );
-                if ( durationAligned > txth.Duration )
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} Duration is not aligned to a multiple of 128, it might not play correctly ingame!", mLogger.ColorRed );
-
-                Native->FlagsAndDuration.Duration.Set( ( uint )durationAligned );
+                // Set settings              
                 Native->Format.FormatTag.Set( txth.FormatTag.Value );
-                Native->Format.RawBitsPerSample.Set( txth.BitDepth.GetValueOrDefault( 0 ) );
+                Native->Format.BitsPerSample.Set( txth.BitDepth.GetValueOrDefault( 0 ) );
                 Native->Format.Channels.Set( txth.Channels.Value );
                 Native->Format.SamplesPerSecond.Set( txth.SampleRate.Value );
-                Native->Format.BlockAlign = txth.Interleave.Value;
+                Native->Format.CalculatedBlockAlign = txth.Interleave.Value;
+
+                Debugger.Launch();
+                var durationAligned = WaveBankFormatHelper.AlignSamples( Native->Format.FormatTag.Get(), txth.Duration.Value, 
+                    Native->Format.CalculatedBlockAlign, Native->Format.Channels );
 
                 if ( txth.LoopStart.HasValue )
                 {
-                    var startSampleAligned = AlignmentHelper.Align( txth.LoopStart.Value, 128 );
-                    var endSampleAligned = AlignmentHelper.Align( txth.LoopEnd.Value, 128 );
-                    if ( endSampleAligned > txth.Duration )
-                    {
-                        mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop start and/or end sample is not aligned to a multiple of 128, it will not loop correctly ingame!", mLogger.ColorRed );
-                    }
-                    else
-                    {
-                        mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop start and/or end sample is not aligned to a multiple of 128, but was able to auto correct it", mLogger.ColorRed );
-                    }
+                    var startSampleAligned = WaveBankFormatHelper.AlignSamples( Native->Format.FormatTag.Get(), txth.LoopStart.Value,
+                        Native->Format.CalculatedBlockAlign, Native->Format.Channels );
+                    var startSampleAlignedDiff = startSampleAligned - txth.LoopStart.Value;
+                    var endSampleAligned = WaveBankFormatHelper.AlignSamples( Native->Format.FormatTag.Get(), txth.LoopEnd.Value + startSampleAlignedDiff,
+                        Native->Format.CalculatedBlockAlign, Native->Format.Channels );
+                    var endSampleAlignedOff = endSampleAligned - txth.LoopEnd.Value;
+
+                    if ( startSampleAlignedDiff > 0 ) mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop start sample is not aligned properly, it may not loop correctly ingame!", mLogger.ColorRed );
+                    if ( endSampleAlignedOff > 0 ) mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop end sample is not aligned properly, it may not loop correctly ingame!", mLogger.ColorRed );
 
                     Native->LoopRegion.StartSample = startSampleAligned;
                     Native->LoopRegion.TotalSamples = endSampleAligned - startSampleAligned;
+
+                    if ( endSampleAligned > durationAligned )
+                        durationAligned = endSampleAligned;
                 }
                 else
                 {
                     Native->LoopRegion.StartSample = 0;
                     Native->LoopRegion.TotalSamples = 0;
                 }
+
+                if ( durationAligned > txth.Duration )
+                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} Duration is not aligned properly, it may not play correctly ingame!", mLogger.ColorRed );
+
+                Native->FlagsAndDuration.Duration.Set( ( uint )durationAligned );
             }
 
             return true;

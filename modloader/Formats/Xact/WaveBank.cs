@@ -196,11 +196,11 @@ namespace modloader.Formats.Xact
         [FieldOffset(0)] public BitField<int, WaveBankMiniFormatTag, N0, N1> FormatTag;
         [FieldOffset(0)] public BitField<int, N2, N4> Channels;
         [FieldOffset(0)] public BitField<int, N5, N22> SamplesPerSecond;
-        [FieldOffset(0)] public BitField<int, N23, N30> RawBlockAlign;
-        [FieldOffset(0)] public BitField<int, WaveBankMiniFormatBitDepth, N31, N31> RawBitsPerSample;
+        [FieldOffset(0)] public BitField<int, N23, N30> BlockAlign;
+        [FieldOffset(0)] public BitField<int, WaveBankMiniFormatBitDepth, N31, N31> BitsPerSample;
         [FieldOffset(0)] public BitField<uint, N0, N31> Value;
 
-        public int BitsPerSample
+        public int CalculatedBitsPerSample
         {
             get
             {
@@ -211,25 +211,25 @@ namespace modloader.Formats.Xact
                     case WaveBankMiniFormatTag.ADPCM:
                         return 4;
                     default:
-                        return ( RawBitsPerSample.Get() == WaveBankMiniFormatBitDepth._16 ) ? 16 : 8;
+                        return ( BitsPerSample.Get() == WaveBankMiniFormatBitDepth._16 ) ? 16 : 8;
                 }
             }
         }
 
-        public int BlockAlign
+        public int CalculatedBlockAlign
         {
             get
             {
                 switch ( FormatTag.Get() )
                 {
                     case WaveBankMiniFormatTag.PCM:
-                        return RawBlockAlign;
+                        return BlockAlign;
                     case WaveBankMiniFormatTag.XMA:
-                        return ( int )Channels * 2;
+                        return ( int )Channels * 16 / 8;
                     case WaveBankMiniFormatTag.ADPCM:
-                        return ( ( int )RawBlockAlign + 22 ) * ( int )Channels;
+                        return ( ( int )BlockAlign + 22 ) * ( int )Channels;
                     case WaveBankMiniFormatTag.WMA:
-                        return ( ( ( int )RawBlockAlign & 0x1F ) < 17 ) ? Constants.WMA_BLOCK_ALIGN[( int )RawBlockAlign & 0x1F] : ( ( int )RawBlockAlign & 0x1F );
+                        return ( ( ( int )BlockAlign & 0x1F ) < 17 ) ? Constants.WMA_BLOCK_ALIGN[( int )BlockAlign & 0x1F] : ( ( int )BlockAlign & 0x1F );
                     default:
                         return 0;
                 }
@@ -240,20 +240,20 @@ namespace modloader.Formats.Xact
                 switch ( FormatTag.Get() )
                 {
                     case WaveBankMiniFormatTag.PCM:
-                        RawBlockAlign.Set( value );
+                        BlockAlign.Set( value );
                         break;
                     case WaveBankMiniFormatTag.XMA:
-                        RawBlockAlign.Set( value / 2 );
+                        BlockAlign.Set( value / ( 16 / 8 ) );
                         break;
                     case WaveBankMiniFormatTag.ADPCM:
-                        RawBlockAlign.Set( ( value / Channels.Get() ) - 22 );
+                        BlockAlign.Set( ( value / Channels.Get() ) - 22 );
                         break;
                     case WaveBankMiniFormatTag.WMA:
                         var temp =  Array.IndexOf( Constants.WMA_BLOCK_ALIGN, value );
                         if ( temp != -1 )
-                            RawBlockAlign.Set( temp );
+                            BlockAlign.Set( temp );
                         else
-                            RawBlockAlign.Set( value );
+                            BlockAlign.Set( value );
                         break;
                 }
             }
@@ -267,16 +267,16 @@ namespace modloader.Formats.Xact
                 {
                     case WaveBankMiniFormatTag.PCM:
                     case WaveBankMiniFormatTag.XMA:
-                        return ( int )SamplesPerSecond * BlockAlign;
+                        return ( int )SamplesPerSecond * CalculatedBlockAlign;
                     case WaveBankMiniFormatTag.ADPCM:
                         {
-                            int blockAlign = BlockAlign;
+                            int blockAlign = CalculatedBlockAlign;
                             int samplesPerAdpcmBlock = AdpcmSamplesPerBlock;
                             return blockAlign * ( int )SamplesPerSecond / samplesPerAdpcmBlock;
                         }
                     case WaveBankMiniFormatTag.WMA:
                         {
-                            int bytesPerSecIndex = BlockAlign >> 5;
+                            int bytesPerSecIndex = CalculatedBlockAlign >> 5;
                             if ( bytesPerSecIndex < 7 )
                             {
                                 return Constants.WMA_AVG_BYTES_PER_SEC[bytesPerSecIndex];
@@ -293,7 +293,7 @@ namespace modloader.Formats.Xact
         {
             get
             {
-                int blockAlign = BlockAlign + 22 + (int)Channels;
+                int blockAlign = CalculatedBlockAlign + 22 + (int)Channels;
                 return blockAlign * 2 / ( int )Channels - 12;
             }
         }
