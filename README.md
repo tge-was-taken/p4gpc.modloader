@@ -18,7 +18,7 @@ Development releases can be found [here](https://ci.appveyor.com/project/TGEnigm
 Note: skip this section if you're installing an existing build from the releases page.
 * Install Reloaded II (see dependencies)
 * Add an environment variable to your path named RELOADEDII set to the root of the Reloaded installation folder
-* Relog to apply the changes
+* Log off and back on to apply the changes
 * Open the solution in Visual Studio 2019 and build as usual.
 
 # Installation
