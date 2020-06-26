@@ -64,7 +64,7 @@ The TXTH file is based on the format described [here](https://github.com/losnoco
 * codec = PCM16LE|PCM8|XMA1|XMA2|MSADPCM|WMA
 * channels = (integer)
 * sample_rate = (integer)
-* interleave = (integer) (always 140 for MSADPCM)
+* interleave = (integer)
 * loop_start_sample = (integer)
 * loop_end_sample = (integer)
 
