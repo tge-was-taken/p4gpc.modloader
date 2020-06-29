@@ -17,6 +17,7 @@ namespace modloader.Mods
         {
             mMods = new List<Mod>();
 
+            Directory.CreateDirectory( directoryPath );
             foreach ( var dir in Directory.EnumerateDirectories( directoryPath ) )
             {
                 var name = Path.GetFileName( dir );

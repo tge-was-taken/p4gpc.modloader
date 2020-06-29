@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using modloader.Formats.Xact;
 using Reloaded.Mod.Interfaces;
 
@@ -21,16 +22,13 @@ namespace modloader.Redirectors.Xact
             mTrackIndexToCueName = new Dictionary<int, string>();
         }
 
-        public void LoadFromFile( string filePath )
+        public void LoadFromFile( string filePath, FileStream fileStream )
         {
-            using ( var fileStream = File.OpenRead( filePath ) )
-            {
-                var length = (int)fileStream.Length;
-                var buffer = ( byte* )Marshal.AllocHGlobal( length );
-                fileStream.Read( new Span<byte>( buffer, length ) );
-                Native = new SoundBankPtr( buffer );
-                CacheCueNames();
-            }
+            var length = (int)fileStream.Length;
+            var buffer = ( byte* )Marshal.AllocHGlobal( length );
+            fileStream.Read( new Span<byte>( buffer, length ) );
+            Native = new SoundBankPtr( buffer );
+            CacheCueNames();
         }
 
         public void Dispose()

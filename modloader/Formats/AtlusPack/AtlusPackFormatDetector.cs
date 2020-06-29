@@ -5,9 +5,9 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Amicitia.IO.Binary;
 
-namespace modloader.AtlusPAK
+namespace modloader.Formats.AtlusPAK
 {
-    public enum AtlusPAKFormat
+    public enum AtlusPackFormat
     {
         Unknown,
 
@@ -27,20 +27,22 @@ namespace modloader.AtlusPAK
         V3
     }
 
-    public unsafe static class AtlusPAKFormatDetector
+    public unsafe static class AtlusPackFormatDetector
     {
-        public static (AtlusPAKFormat, Endianness) DetectFormat( ReadOnlySpan<byte> buffer )
+        private const int MAX_LENGTH_SANITY_VALUE = ( 1024 * 1024 * 1024 );
+
+        public static (AtlusPackFormat, Endianness) DetectFormat( ReadOnlySpan<byte> buffer )
         {
             if ( IsFormatV1( buffer, out var endianness ) )
-                return (AtlusPAKFormat.V1, endianness);
+                return (AtlusPackFormat.V1, endianness);
 
             if ( IsFormatV2OrV3( buffer, 36, out endianness ) )
-                return (AtlusPAKFormat.V2, endianness);
+                return (AtlusPackFormat.V2, endianness);
 
             if ( IsFormatV2OrV3( buffer, 28, out endianness ) )
-                return (AtlusPAKFormat.V3, endianness);
+                return (AtlusPackFormat.V3, endianness);
 
-            return (AtlusPAKFormat.Unknown, endianness);
+            return (AtlusPackFormat.Unknown, endianness);
         }
 
         private static bool IsFormatV1( ReadOnlySpan<byte> buffer, out Endianness endianness )
@@ -72,10 +74,10 @@ namespace modloader.AtlusPAK
             }
 
             var length = BinaryPrimitives.ReadInt32LittleEndian( buffer.Slice( 252 ) );
-            if ( length < 0 || length >= ( 1024 * 1024 * 1024 ) )
+            if ( length < 0 || length >= MAX_LENGTH_SANITY_VALUE )
             {
                 BinaryOperations<int>.Reverse( ref length );
-                if ( length < 0 || length >= ( 1024 * 1024 * 1024 ) )
+                if ( length < 0 || length >= MAX_LENGTH_SANITY_VALUE )
                     return false;
 
                 endianness = Endianness.Big;
@@ -121,10 +123,10 @@ namespace modloader.AtlusPAK
 
             // Data length sanity check
             var length = BinaryPrimitives.ReadInt32LittleEndian( buffer.Slice( 4 + entrySize - 4 ) );
-            if ( length < 0 || length >= ( 1024 * 1024 * 1024 ) )
+            if ( length < 0 || length >= MAX_LENGTH_SANITY_VALUE )
             {
                 BinaryOperations<int>.Reverse( ref length );
-                if ( length < 0 || length >= ( 1024 * 1024 * 1024 ) )
+                if ( length < 0 || length >= MAX_LENGTH_SANITY_VALUE )
                     return false;
 
                 endianness = Endianness.Big;

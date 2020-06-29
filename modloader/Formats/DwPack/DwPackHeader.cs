@@ -9,14 +9,5 @@ namespace modloader.Formats.DwPack
         public int Field08;
         public int FileCount;
         public int Index;
-
-        public DwPackFileEntry* Files
-        {
-            get
-            {
-                fixed ( DwPackHeader* pThis = &this ) 
-                    return ( DwPackFileEntry* )( pThis + sizeof( DwPackHeader ) );
-            }
-        }
     }
 }

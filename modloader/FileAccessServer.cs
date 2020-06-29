@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using modloader.Formats.DwPack;
 using modloader.Hooking;
@@ -20,7 +21,7 @@ namespace modloader
         /// Maps file handles to file paths.
         /// </summary>
         private ConcurrentDictionary<IntPtr, FileInfo> _handleToInfoMap = new ConcurrentDictionary<IntPtr, FileInfo>();
-        private List<FileAccessFilter> _filters = new List<FileAccessFilter>();
+        private List<FileAccessClient> _filters = new List<FileAccessClient>();
         private FileAccessServerHooks _hooks;
 
         private object _closeHandleLock = new object();
@@ -78,7 +79,7 @@ namespace modloader
             _hooks.Disable();
         }
 
-        public void AddFilter( FileAccessFilter filter )
+        public void AddClient( FileAccessClient filter )
         {
             if ( _activated ) throw new InvalidOperationException();
 
@@ -86,7 +87,7 @@ namespace modloader
             _filters.Add( filter );
         }
 
-        public void RemoveFilter( FileAccessFilter filter )
+        public void RemoveFilter( FileAccessClient filter )
         {
             if ( _activated ) throw new InvalidOperationException();
 
@@ -114,7 +115,7 @@ namespace modloader
         {
             lock ( _setInfoLock )
             {
-                if ( fileInformationClass == FileInformationClass.FilePositionInformation )
+                if ( fileInformationClass == FileInformationClass.FilePositionInformation && _handleToInfoMap.ContainsKey( handle ) )
                     _handleToInfoMap[handle].FilePointer = *( long* )fileInformation;
 
                 foreach ( var filter in _filters )

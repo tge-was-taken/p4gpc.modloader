@@ -6,11 +6,11 @@ using static modloader.Native;
 
 namespace modloader
 {
-    public abstract unsafe class FileAccessFilter
+    public abstract unsafe class FileAccessClient
     {
         protected FileAccessServerHooks mHooks;
 
-        public FileAccessFilter()
+        public FileAccessClient()
         {
         }
 
@@ -31,7 +31,7 @@ namespace modloader
         public abstract unsafe NtStatus NtReadFileImpl( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext,
             ref IO_STATUS_BLOCK ioStatus, byte* buffer, uint length, LARGE_INTEGER* byteOffset, IntPtr key );
 
-        public abstract NtStatus NtCreateFileImpl( string newFilePath, out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
+        public abstract NtStatus NtCreateFileImpl( string filePath, out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
             ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength );
 
         public abstract bool CloseHandleImpl( IntPtr handle );

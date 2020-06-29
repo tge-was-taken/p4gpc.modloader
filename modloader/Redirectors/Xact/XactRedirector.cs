@@ -6,6 +6,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using modloader.Formats.Xact;
 using modloader.Mods;
 using modloader.Utilities;
@@ -14,7 +15,7 @@ using static modloader.Native;
 
 namespace modloader.Redirectors.Xact
 {
-    public unsafe class XactRedirector : FileAccessFilter
+    public unsafe class XactRedirector : FileAccessClient
     {
         private struct CacheEntry
         {
@@ -79,6 +80,9 @@ namespace modloader.Redirectors.Xact
         public override Native.NtStatus NtCreateFileImpl( string newFilePath, out IntPtr handle, FileAccess access, ref Native.OBJECT_ATTRIBUTES objectAttributes, 
             ref Native.IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
+            var result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes,
+                share, createDisposition, createOptions, eaBuffer, eaLength );
+
             var fileName = Path.GetFileNameWithoutExtension( newFilePath );
             var ext = Path.GetExtension( newFilePath );
             var isWaveBank = ext.Equals( ".xwb", StringComparison.OrdinalIgnoreCase );
@@ -92,9 +96,15 @@ namespace modloader.Redirectors.Xact
 
                 // Wave bank
                 mWaveBankByName[fileName] = waveBank = new VirtualWaveBank( mLogger );
-                mHooks.Disable();
-                waveBank.LoadFromFile( newFilePath );
-                mHooks.Enable();
+
+                // Load wave bank
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
+                    waveBank.LoadFromFile( newFilePath, fileStream );
+
+                // Reopen file to reset it
+                result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes,
+                    share, createDisposition, createOptions, eaBuffer, eaLength );
+
                 ProcessWaveBankEntries( newFilePath, soundBank, waveBank );
                 Debug( $"{newFilePath} registered" );
             }
@@ -102,9 +112,14 @@ namespace modloader.Redirectors.Xact
             {
                 // Sound bank
                 mSoundBankByName[fileName] = soundBank = new VirtualSoundBank( mLogger );
-                mHooks.Disable();
-                soundBank.LoadFromFile( newFilePath );
-                mHooks.Enable();
+
+                // Load wave bank
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
+                    soundBank.LoadFromFile( newFilePath, fileStream );
+
+                // Reopen file to reset it
+                result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes,
+                    share, createDisposition, createOptions, eaBuffer, eaLength );
 
                 // Find associated wave bank
                 if (!mWaveBankByName.TryGetValue(soundBank.Native.WaveBankNames[0].Name, out waveBank))
@@ -116,9 +131,6 @@ namespace modloader.Redirectors.Xact
                     ProcessWaveBankEntries( newFilePath, soundBank, waveBank );
                 }
             }
-
-            var result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, 
-                share, createDisposition, createOptions, eaBuffer, eaLength );
 
             if ( isWaveBank )
             {

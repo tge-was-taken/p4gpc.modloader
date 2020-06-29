@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using Amicitia.IO;
+using Microsoft.Win32.SafeHandles;
 using modloader.Formats.Xact;
 using Reloaded.Mod.Interfaces;
 
@@ -29,32 +30,29 @@ namespace modloader.Redirectors.Xact
             Entries = new List<VirtualWaveBankEntry>();
         }
 
-        public void LoadFromFile( string filePath )
+        public void LoadFromFile( string filePath, FileStream fileStream )
         {
             FilePath = filePath;
             FileName = Path.GetFileNameWithoutExtension( filePath );
             FilePointer = 0;
 
-            using ( var fileStream = new FileStream( filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, FileOptions.None ) )
-            {
-                // Get file size
-                RealFileSize = fileStream.Length;
-                VirtualFileSize = RealFileSize;
+            // Get file size
+            RealFileSize = fileStream.Length;
+            VirtualFileSize = RealFileSize;
 
-                // Read header to determine where the data starts & so we can read all of the headers
-                Span<byte> headerSpan = stackalloc byte[sizeof(WaveBankHeader)];
-                fileStream.Read( headerSpan );
-                var entryWaveDataOffset = 0;
-                fixed ( byte* headerBuffer = headerSpan )
-                    entryWaveDataOffset = ( ( WaveBankHeader* )headerBuffer )->Segments[( int )WaveBankSegmentIndex.EntryWaveData].Offset;
+            // Read header to determine where the data starts & so we can read all of the headers
+            Span<byte> headerSpan = stackalloc byte[sizeof(WaveBankHeader)];
+            fileStream.Read( headerSpan );
+            var entryWaveDataOffset = 0;
+            fixed ( byte* headerBuffer = headerSpan )
+                entryWaveDataOffset = ( ( WaveBankHeader* )headerBuffer )->Segments[( int )WaveBankSegmentIndex.EntryWaveData].Offset;
 
-                // Read the rest of the header data
-                var alignedSize = AlignmentHelper.Align( entryWaveDataOffset, 0x1000 );
-                var buffer = (byte*)Marshal.AllocHGlobal( alignedSize );
-                fileStream.Seek( 0, SeekOrigin.Begin );
-                fileStream.Read( new Span<byte>( buffer, alignedSize ) );
-                Native = new WaveBankPtr( buffer );
-            }
+            // Read the rest of the header data
+            var alignedSize = AlignmentHelper.Align( entryWaveDataOffset, 0x1000 );
+            var buffer = (byte*)Marshal.AllocHGlobal( alignedSize );
+            fileStream.Seek( 0, SeekOrigin.Begin );
+            fileStream.Read( new Span<byte>( buffer, alignedSize ) );
+            Native = new WaveBankPtr( buffer );
 
             // Load entries
             for ( int i = 0; i < Native.Data->EntryCount; i++ )

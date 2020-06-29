@@ -7,7 +7,7 @@ using modloader.Utilities;
 namespace modloader.Formats.DwPack
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 0x120)]
-    public unsafe struct DwPackFileEntry
+    public unsafe struct DwPackEntry
     {
         public const int PATH_LENGTH = 260;
 
@@ -25,7 +25,7 @@ namespace modloader.Formats.DwPack
             get
             {
                 fixed ( byte* pathBytes = PathBytes )
-                    return EncodingCache.ShiftJIS.GetString( NativeHelper.GetStringSpan( pathBytes ) );
+                    return EncodingCache.ShiftJIS.GetString( NativeStringHelper.AsSpan( pathBytes ) );
             }
             set
             {
