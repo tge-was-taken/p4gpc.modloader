@@ -1,22 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
-using Reloaded.Hooks;
 using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.Internal;
-using Reloaded.Hooks.Tools;
 using Reloaded.Memory.Sources;
 
 namespace modloader.Hooking
 {
-    public static unsafe class ImportAddressTableHooker
-    {
-		public static IHook<TFunction> Hook<TFunction>( IReloadedHooks hookFactory, 
-			string libraryName, string functionName, TFunction function)
+	public static unsafe class ImportAddressTableHooker
+	{
+		public static IHook<TFunction> Hook<TFunction>( IReloadedHooks hookFactory,
+			string libraryName, string functionName, TFunction function )
 		{
 			const int IMAGE_DIRECTORY_ENTRY_IMPORT = 1;
+			var cleanLibraryName = Path.GetFileNameWithoutExtension(libraryName);
 
 			var imageBase = GetModuleHandle(null);
 			var dosHeaders = (IMAGE_DOS_HEADERS*)imageBase;
@@ -25,10 +21,12 @@ namespace modloader.Hooking
 			var importsDirectory = ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
 			var importDescriptor = (IMAGE_IMPORT_DESCRIPTOR*)(importsDirectory.VirtualAddress + (uint)imageBase);
 
-			while (importDescriptor->Name != 0)
+			while ( importDescriptor->Name != 0 )
 			{
 				var importLibraryName = new string((sbyte*)((long)imageBase + importDescriptor->Name));
-				if ( importLibraryName == libraryName )
+				var cleanImportLibraryName = Path.GetFileNameWithoutExtension(importLibraryName);
+
+				if ( cleanImportLibraryName.Equals( cleanLibraryName, StringComparison.OrdinalIgnoreCase ) )
 				{
 					var importLibrary = LoadLibrary(importLibraryName);
 
@@ -70,7 +68,7 @@ namespace modloader.Hooking
 			public IntPtr OriginalFunctionWrapperAddress { get; }
 			public IReverseWrapper<TFunction> ReverseWrapper { get; }
 
-			public IndirectHook(IntPtr addressToFunctionPointer, TFunction function)
+			public IndirectHook( IntPtr addressToFunctionPointer, TFunction function )
 			{
 				mAddressToFunctionPointer = addressToFunctionPointer;
 				OriginalFunctionAddress = *( IntPtr* )mAddressToFunctionPointer;
@@ -114,7 +112,7 @@ namespace modloader.Hooking
 				get
 				{
 					fixed ( byte* pNameBytes = NameBytes )
-						return new string( (sbyte*)pNameBytes );
+						return new string( ( sbyte* )pNameBytes );
 				}
 			}
 		}
@@ -223,32 +221,32 @@ namespace modloader.Hooking
 
 		[StructLayout( LayoutKind.Sequential, Pack = 1 )]
 		private unsafe struct IMAGE_DOS_HEADERS
-        {
-            public fixed byte e_magic_byte[2];       // Magic number
-            public UInt16 e_cblp;    // Bytes on last page of file
-            public UInt16 e_cp;      // Pages in file
-            public UInt16 e_crlc;    // Relocations
-            public UInt16 e_cparhdr;     // Size of header in paragraphs
-            public UInt16 e_minalloc;    // Minimum extra paragraphs needed
-            public UInt16 e_maxalloc;    // Maximum extra paragraphs needed
-            public UInt16 e_ss;      // Initial (relative) SS value
-            public UInt16 e_sp;      // Initial SP value
-            public UInt16 e_csum;    // Checksum
-            public UInt16 e_ip;      // Initial IP value
-            public UInt16 e_cs;      // Initial (relative) CS value
-            public UInt16 e_lfarlc;      // File address of relocation table
-            public UInt16 e_ovno;    // Overlay number
-            public fixed UInt16 e_res1[4];    // Reserved words
-            public UInt16 e_oemid;       // OEM identifier (for e_oeminfo)
-            public UInt16 e_oeminfo;     // OEM information; e_oemid specific
-            public fixed UInt16 e_res2[10];    // Reserved words
-            public Int32 e_lfanew;      // File address of new exe header
-        }
+		{
+			public fixed byte e_magic_byte[2];       // Magic number
+			public UInt16 e_cblp;    // Bytes on last page of file
+			public UInt16 e_cp;      // Pages in file
+			public UInt16 e_crlc;    // Relocations
+			public UInt16 e_cparhdr;     // Size of header in paragraphs
+			public UInt16 e_minalloc;    // Minimum extra paragraphs needed
+			public UInt16 e_maxalloc;    // Maximum extra paragraphs needed
+			public UInt16 e_ss;      // Initial (relative) SS value
+			public UInt16 e_sp;      // Initial SP value
+			public UInt16 e_csum;    // Checksum
+			public UInt16 e_ip;      // Initial IP value
+			public UInt16 e_cs;      // Initial (relative) CS value
+			public UInt16 e_lfarlc;      // File address of relocation table
+			public UInt16 e_ovno;    // Overlay number
+			public fixed UInt16 e_res1[4];    // Reserved words
+			public UInt16 e_oemid;       // OEM identifier (for e_oeminfo)
+			public UInt16 e_oeminfo;     // OEM information; e_oemid specific
+			public fixed UInt16 e_res2[10];    // Reserved words
+			public Int32 e_lfanew;      // File address of new exe header
+		}
 
-        [DllImport( "kernel32.dll" )] 
+		[DllImport( "kernel32.dll" )]
 		private static extern IntPtr GetModuleHandle( string lpModuleName );
 
-		[DllImport( "kernel32", SetLastError = true, CharSet = CharSet.Ansi )] 
-		private static extern IntPtr LoadLibrary( [MarshalAs( UnmanagedType.LPStr )]string lpFileName );
+		[DllImport( "kernel32", SetLastError = true, CharSet = CharSet.Ansi )]
+		private static extern IntPtr LoadLibrary( [MarshalAs( UnmanagedType.LPStr )] string lpFileName );
 	}
 }
