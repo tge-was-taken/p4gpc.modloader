@@ -56,6 +56,7 @@ namespace modloader
 
             /* Your mod code starts here. */
             _P4GPCModLoader = new P4GPCModLoader( _logger, _configuration, _hooks );
+            _P4GPCModLoader.Activate();
         }
 
         private void OnConfigurationUpdated( IConfigurable obj )

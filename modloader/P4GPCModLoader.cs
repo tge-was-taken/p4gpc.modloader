@@ -7,6 +7,7 @@ using System;
 using modloader.Utilities;
 using modloader.Mods;
 using System.Diagnostics;
+using System.Text;
 
 namespace modloader
 {
@@ -32,10 +33,8 @@ namespace modloader
 #endif
 
             // Init
-            if ( Native.GetConsoleWindow() != IntPtr.Zero )
-                Console.OutputEncoding = EncodingCache.ShiftJIS;
-
-            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.2.0a" );
+            TrySetConsoleEncoding( EncodingCache.ShiftJIS );
+            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.1.2" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );
 
@@ -49,8 +48,26 @@ namespace modloader
             // XACT (XWB, XSB) redirector
             mXactRedirector = new XactRedirector( logger, modDb );
             mFileAccessServer.AddClient( mXactRedirector );
+        }
 
+        public void Activate()
+        {
             mFileAccessServer.Activate();
+        }
+
+        private void TrySetConsoleEncoding( Encoding encoding )
+        {
+            if ( Native.GetConsoleWindow() != IntPtr.Zero )
+            {
+                try
+                {
+                    Console.OutputEncoding = encoding;
+                }
+                catch ( Exception )
+                {
+                    // Fails if encoding is not supported by the console
+                }
+            }
         }
     }
 }
