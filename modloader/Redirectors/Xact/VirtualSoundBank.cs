@@ -11,12 +11,12 @@ namespace modloader.Redirectors.Xact
 {
     public unsafe class VirtualSoundBank : IDisposable
     {
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
         private readonly Dictionary<int, string> mTrackIndexToCueName;
 
         public SoundBankPtr Native { get; private set; }
 
-        public VirtualSoundBank( ILogger logger )
+        public VirtualSoundBank( SemanticLogger logger )
         {
             mLogger = logger;
             mTrackIndexToCueName = new Dictionary<int, string>();

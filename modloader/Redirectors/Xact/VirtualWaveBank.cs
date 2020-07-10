@@ -12,7 +12,7 @@ namespace modloader.Redirectors.Xact
 {
     internal unsafe class VirtualWaveBank
     {
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
 
         public const long MAX_FILE_SIZE = uint.MaxValue;
 
@@ -24,7 +24,7 @@ namespace modloader.Redirectors.Xact
         public long VirtualFileSize { get; private set; }
         public List<VirtualWaveBankEntry> Entries { get; }
 
-        public VirtualWaveBank( ILogger logger )
+        public VirtualWaveBank( SemanticLogger logger )
         {
             mLogger = logger;
             Entries = new List<VirtualWaveBankEntry>();
@@ -71,7 +71,7 @@ namespace modloader.Redirectors.Xact
 
             var segmentOffset = offset - segment->Offset;
             if ( segmentOffset > uint.MaxValue )
-                mLogger.WriteLine( "[modloader:XactRedirector] E: Out of available memory! 4GB address space exhausted", mLogger.ColorRed );
+                mLogger.Error( "Out of available memory! 4GB address space exhausted" );
 
             segment->Length += ( int )( VirtualFileSize - origVirtualSize );
             return segmentOffset;

@@ -24,7 +24,13 @@ namespace modloader
 
         public P4GPCModLoader( ILogger logger, Config configuration, Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks hooks )
         {
-            mLogger = logger;
+            // Enable file logging only if console is enabled
+            // performance impact would be too great otherwise
+            if ( Native.GetConsoleWindow() != IntPtr.Zero )
+                mLogger = new FileLoggingLogger( logger, "p4gpc.modloader.log.txt" );
+            else
+                mLogger = logger;
+
             mConfiguration = configuration;
             mHooks = hooks;
 
@@ -42,11 +48,11 @@ namespace modloader
             var modDb = new ModDb( mConfiguration.ModsDirectory, mConfiguration.EnabledMods );
 
             // DW_PACK (PAC) redirector
-            mDwPackRedirector = new DwPackRedirector( logger, modDb );
+            mDwPackRedirector = new DwPackRedirector( mLogger, modDb );
             mFileAccessServer.AddClient( mDwPackRedirector );
 
             // XACT (XWB, XSB) redirector
-            mXactRedirector = new XactRedirector( logger, modDb );
+            mXactRedirector = new XactRedirector( mLogger, modDb );
             mFileAccessServer.AddClient( mXactRedirector );
         }
 

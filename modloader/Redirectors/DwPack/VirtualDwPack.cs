@@ -16,7 +16,7 @@ namespace modloader.Redirectors.DwPack
     {
         public const long MAX_FILE_SIZE = uint.MaxValue;
 
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
         private MemoryMapper mMapper;
 
         public DwPackPtr Native { get; private set; }
@@ -28,7 +28,7 @@ namespace modloader.Redirectors.DwPack
         public long DataBaseOffset => Native.Data - Native.Ptr;
         public List<VirtualDwPackEntry> Entries { get; }
 
-        public VirtualDwPack( ILogger logger )
+        public VirtualDwPack( SemanticLogger logger )
         {
             mLogger = logger;
             mMapper = new MemoryMapper();
@@ -70,20 +70,11 @@ namespace modloader.Redirectors.DwPack
             var oldVirtualFileSize = VirtualFileSize;
             VirtualFileSize = Math.Max( VirtualFileSize, offset + length );
             if ( VirtualFileSize > MAX_FILE_SIZE )
-                mLogger.WriteLine( "[modloader:DwPackRedirector] E: Out of available memory! 4GB address space exhausted", mLogger.ColorRed );
+                mLogger.Error( "Out of available memory! 4GB address space exhausted" );
             else if ( VirtualFileSize > oldVirtualFileSize )
-                mLogger.WriteLine( $"[modloader:DwPackRedirector] I: {FileName} Virtual size increased to 0x{VirtualFileSize:X8}" );
+                mLogger.Info( $"{FileName} Virtual size increased to 0x{VirtualFileSize:X8}" );
 
             return ( long )( offset - DataBaseOffset );
-
-            //var offset = VirtualFileSize;
-            //VirtualFileSize += length;
-            //if ( VirtualFileSize > MAX_FILE_SIZE )
-            //    mLogger.WriteLine( "[modloader:DwPackRedirector] E: Out of available memory! 4GB address space exhausted", mLogger.ColorRed );
-            //else
-            //    mLogger.WriteLine( $"[modloader:DwPackRedirector] D: Virtual size increased to 0x{VirtualFileSize:X8}" );
-
-            //return ( long )( offset - ( Native.Data - Native.Ptr ) );
         }
     }
 }

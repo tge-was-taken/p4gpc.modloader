@@ -11,7 +11,7 @@ namespace modloader.Redirectors.DwPack
 {
     public unsafe class VirtualDwPackEntry
     {
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
 
         public VirtualDwPack Pack { get; private set; }
         public DwPackEntry* Native { get; private set; }    
@@ -23,7 +23,7 @@ namespace modloader.Redirectors.DwPack
         public string RedirectedFileName { get; private set; }
         public long RedirectedFileSize { get; private set; }
 
-        public VirtualDwPackEntry( ILogger logger, VirtualDwPack pack, DwPackEntry* entry, int index )
+        public VirtualDwPackEntry( SemanticLogger logger, VirtualDwPack pack, DwPackEntry* entry, int index )
         {
             mLogger = logger;
             Pack = pack;
@@ -47,14 +47,12 @@ namespace modloader.Redirectors.DwPack
                 if ( mod.Files.Contains( redirectedFilePath ) )
                 {
                     Redirect( redirectedFilePath );
-                    mLogger.WriteLine( $"[modloader:DwPackRedirector] I: {Pack.FileName} {Native->Path} Redirected to {redirectedFilePath}" );
+                    mLogger.Info( $"{Pack.FileName} {Native->Path} Redirected to {redirectedFilePath}" );
                     return true;
                 }
                 else
                 {
-#if DEBUG
-                    mLogger.WriteLine( $"[modloader:DwPackRedirector] D: No redirection for {Native->Path} because {redirectedFilePath} does not exist." );
-#endif
+                    mLogger.Debug( $"No redirection for {Native->Path} because {redirectedFilePath} does not exist." );
                 }
             }
 

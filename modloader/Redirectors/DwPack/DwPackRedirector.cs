@@ -17,7 +17,7 @@ namespace modloader.Redirectors.DwPack
     public unsafe class DwPackRedirector : FileAccessClient
     {
         private static readonly Regex sPacFileNameRegex = new Regex(@".+\d{5}.pac", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
         private readonly ModDb mModDb;
         private readonly Dictionary<IntPtr, VirtualDwPack> mPacksByHandle;
         private readonly Dictionary<string, VirtualDwPack> mPacksByName;
@@ -26,7 +26,7 @@ namespace modloader.Redirectors.DwPack
 
         public DwPackRedirector( ILogger logger, ModDb modDb )
         {
-            mLogger = logger;
+            mLogger = new SemanticLogger( logger, "[modloader:DwPackRedirector]" );
             mModDb = modDb;
             mPacksByHandle = new Dictionary<IntPtr, VirtualDwPack>();
             mPacksByName = new Dictionary<string, VirtualDwPack>( StringComparer.OrdinalIgnoreCase );
@@ -70,13 +70,13 @@ namespace modloader.Redirectors.DwPack
                 result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
                     fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
 
-                Debug( $"Registered {filePath}" );
+                mLogger.Debug( $"Registered {filePath}" );
 
                 // Entries are redirected as needed to improve startup performance
             }
 
             mPacksByHandle[handle] = pack;
-            Debug( $"Hnd {handle} {filePath} handle registered" );
+            mLogger.Debug( $"Hnd {handle} {filePath} handle registered" );
             return result;
         }
 
@@ -104,24 +104,24 @@ namespace modloader.Redirectors.DwPack
                 // This is done as late as possible to improve startup times
                 if ( !entry.IsRedirected )
                 {
-                    Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8}" );
+                    mLogger.Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8}" );
                     result = mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
                 }
                 else
                 {
-                    Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8} redirected to {entry.RedirectedFilePath}" );
+                    mLogger.Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8} redirected to {entry.RedirectedFilePath}" );
                     result = NtStatus.Success;
 
                     if ( fileDataOffset < 0 )
                     {
-                        Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Offset is before start of data!!!" );
+                        mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Offset is before start of data!!!" );
                     }
                     else if ( fileDataOffset > entry.RedirectedFileSize )
                     {
-                        Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Offset is after end of data!!!" );
+                        mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Offset is after end of data!!!" );
                     }
 
-                    Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
+                    mLogger.Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
 
                     // Get cached file stream if the file was previously opened or open a new file
                     Stream redirectedStream;
@@ -144,13 +144,13 @@ namespace modloader.Redirectors.DwPack
                         SetBytesRead( handle, ( int )offset, ( int )length, ref ioStatus );
 
                         if ( readBytes != length )
-                            Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+                            mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
 
-                        Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Wrote redirected file to buffer" );
+                        mLogger.Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Wrote redirected file to buffer" );
                     }
                     catch ( Exception e )
                     {
-                        Debug( $"{pack.FileName} Hnd: {handle} Index: {i} {entry.Native->Path} Unhandled exception thrown during reading {entry.RedirectedFilePath}: {e}" );
+                        mLogger.Debug( $"{pack.FileName} Hnd: {handle} Index: {i} {entry.Native->Path} Unhandled exception thrown during reading {entry.RedirectedFilePath}: {e}" );
                     }
                 }
 
@@ -158,7 +158,7 @@ namespace modloader.Redirectors.DwPack
                 return result;
             }
 
-            Error( $"{pack.FileName} Hnd: {handle} Unhandled file data read request!! Offset: 0x{effOffset:X8} Length: 0x{length:X8}" );
+            mLogger.Error( $"{pack.FileName} Hnd: {handle} Unhandled file data read request!! Offset: 0x{effOffset:X8} Length: 0x{length:X8}" );
             return mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
         }
 
@@ -207,12 +207,12 @@ namespace modloader.Redirectors.DwPack
             }
             else
             {
-                Error( $"{pack.FileName} Hnd: {handle} Unexpected read request!! Offset: {effOffset:X8} Length: {length:X8}" );
+                mLogger.Error( $"{pack.FileName} Hnd: {handle} Unexpected read request!! Offset: {effOffset:X8} Length: {length:X8}" );
                 result = mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
             }
 
             if ( result != NtStatus.Success )
-                Error( $"{pack.FileName} Hnd: {handle} NtReadFile failed with {result}!!!" );
+                mLogger.Error( $"{pack.FileName} Hnd: {handle} NtReadFile failed with {result}!!!" );
 
             return result;
         }
@@ -225,11 +225,11 @@ namespace modloader.Redirectors.DwPack
             {
                 var pack = mPacksByHandle[hfile];
                 pack.FilePointer = *( long* )fileInformation;
-                Debug( $"{pack.FileName} Hnd: {hfile} SetFilePointer -> 0x{pack.FilePointer:X8}" );
+                mLogger.Debug( $"{pack.FileName} Hnd: {hfile} SetFilePointer -> 0x{pack.FilePointer:X8}" );
             }
             else
             {
-                Warning( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8}, " +
+                mLogger.Warning( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8}, " +
                     $"length = {length}, fileInformationClass = {fileInformationClass}" );
             }
 
@@ -253,17 +253,10 @@ namespace modloader.Redirectors.DwPack
             }
             else
             {
-                Debug( $"NtQueryInformationFileImpl( IntPtr hfile = {hfile}, out Native.IO_STATUS_BLOCK ioStatusBlock, void* fileInformation, length = {length}, fileInformationClass = {fileInformationClass} )" );
+                mLogger.Debug( $"NtQueryInformationFileImpl( IntPtr hfile = {hfile}, out Native.IO_STATUS_BLOCK ioStatusBlock, void* fileInformation, length = {length}, fileInformationClass = {fileInformationClass} )" );
             }
 
             return result;
         }
-
-        private void Info( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] I {msg}" );
-        private void Warning( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] W {msg}", mLogger.ColorYellow );
-        private void Error( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] E {msg}", mLogger.ColorRed );
-
-        [Conditional( "DEBUG" )]
-        private void Debug( string msg ) => mLogger?.WriteLine( $"[modloader:DwPackRedirector] D {msg}", mLogger.ColorGreen );
     }
 }

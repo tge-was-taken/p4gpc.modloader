@@ -10,7 +10,7 @@ namespace modloader.Redirectors.Xact
 {
     internal unsafe class VirtualWaveBankEntry : IDisposable
     {
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
 
         public VirtualWaveBank WaveBank { get; private set; }
         public void* NativePtr { get; private set; }
@@ -25,7 +25,7 @@ namespace modloader.Redirectors.Xact
         public string FileName { get; private set; }
         public long FileSize { get; private set; }
 
-        public VirtualWaveBankEntry( ILogger logger, VirtualWaveBank waveBank, void* entry, int index, string cueName )
+        public VirtualWaveBankEntry( SemanticLogger logger, VirtualWaveBank waveBank, void* entry, int index, string cueName )
         {
             mLogger = logger;
             WaveBank = waveBank;
@@ -38,7 +38,7 @@ namespace modloader.Redirectors.Xact
         {
             if ( IsCompact )
             {
-                mLogger.WriteLine( $"[modloader:XactRedirector] TODO: Compact wave format not implemented, unable to redirect to {filePath}", mLogger.ColorRed );
+                mLogger.Error( $"Compact wave format not implemented, unable to redirect to {filePath}" );
                 return false;
             }
 
@@ -48,20 +48,20 @@ namespace modloader.Redirectors.Xact
 
             if ( fileSize == 0 )
             {
-                mLogger.WriteLine( $"[modloader:XactRedirector] {filePath} is empty", mLogger.ColorRed );
+                mLogger.Error( $"{filePath} is empty" );
                 return false;
             }
 
             var txthPath = filePath + ".txth";
             if ( !File.Exists( txthPath ) )
             {
-                mLogger.WriteLine( $"[modloader:XactRedirector] {filePath} Missing .txth file! Expected location: {txthPath}", mLogger.ColorRed );
+                mLogger.Error( $"{filePath} Missing .txth file! Expected location: {txthPath}" );
                 return false;
             }
 
             if ( !ParseTxth( txthPath ) )
             {
-                mLogger.WriteLine( $"[modloader:XactRedirector] {txthPath} Failed to parse. Make sure the file is formatted correctly.", mLogger.ColorRed );
+                mLogger.Error( $"{txthPath} Failed to parse. Make sure the file is formatted correctly." );
                 return false;
             }
 
@@ -85,7 +85,7 @@ namespace modloader.Redirectors.Xact
             }
             else
             {
-                mLogger.WriteLine( $"[modloader:XactRedirector] TODO: Compact wave format not implemented, unable to redirect to {filePath}", mLogger.ColorRed );
+                mLogger.Error( $"Compact wave format not implemented, unable to redirect to {filePath}" );
                 return false;
             }
 
@@ -155,7 +155,7 @@ namespace modloader.Redirectors.Xact
                                     break;
 
                                 default:
-                                    mLogger.WriteLine( $"[modloader:XactRedirector] Unsupported codec ({value})" );
+                                    mLogger.Error( $"Unsupported codec ({value})" );
                                     return false;
                             }
                             break;
@@ -186,38 +186,38 @@ namespace modloader.Redirectors.Xact
                             break;
 
                         default:
-                            mLogger.WriteLine( $"[modloader:XactRedirector] {path} Unrecognized TXTH command: {key} = {value}", mLogger.ColorRed );
+                            mLogger.Error( $"{path} Unrecognized TXTH command: {key} = {value}" );
                             break;
                     }
                 }
 
                 if ( !txth.Duration.HasValue )
                 {
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} num_samples is not set!", mLogger.ColorRed );
+                    mLogger.Error( $"{path} num_samples is not set!" );
                     return false;
                 }
 
                 if ( !txth.FormatTag.HasValue )
                 {
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} codec is not set!", mLogger.ColorRed );
+                    mLogger.Error( $"{path} codec is not set!" );
                     return false;
                 }
 
                 if ( !txth.Channels.HasValue )
                 {
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} channels is not set!", mLogger.ColorRed );
+                    mLogger.Error( $"{path} channels is not set!" );
                     return false;
                 }
 
                 if ( !txth.SampleRate.HasValue )
                 {
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} sample_rate is not set!", mLogger.ColorRed );
+                    mLogger.Error( $"{path} sample_rate is not set!" );
                     return false;
                 }
 
                 if ( !txth.Interleave.HasValue )
                 {
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} interleave is not set!", mLogger.ColorRed );
+                    mLogger.Error( $"{path} interleave is not set!" );
                     return false;
                 }
 
@@ -246,8 +246,8 @@ namespace modloader.Redirectors.Xact
                         Native->Format.CalculatedBlockAlign, Native->Format.Channels );
                     var endSampleAlignedOff = endSampleAligned - txth.LoopEnd.Value;
 
-                    if ( startSampleAlignedDiff > 0 ) mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop start sample is not aligned properly, it may not loop correctly ingame!", mLogger.ColorRed );
-                    if ( endSampleAlignedOff > 0 ) mLogger.WriteLine( $"[modloader:XactRedirector] {path} Loop end sample is not aligned properly, it may not loop correctly ingame!", mLogger.ColorRed );
+                    if ( startSampleAlignedDiff > 0 ) mLogger.Warning( $"{path} Loop start sample is not aligned properly, it may not loop correctly ingame!" );
+                    if ( endSampleAlignedOff > 0 ) mLogger.Warning( $"{path} Loop end sample is not aligned properly, it may not loop correctly ingame!" );
 
                     Native->LoopRegion.StartSample = startSampleAligned;
                     Native->LoopRegion.TotalSamples = endSampleAligned - startSampleAligned;
@@ -262,7 +262,7 @@ namespace modloader.Redirectors.Xact
                 }
 
                 if ( durationAligned > txth.Duration )
-                    mLogger.WriteLine( $"[modloader:XactRedirector] {path} Duration is not aligned properly, it may not play correctly ingame!", mLogger.ColorRed );
+                    mLogger.Warning( $"[{path} Duration is not aligned properly, it may not play correctly ingame!" );
 
                 Native->FlagsAndDuration.Duration.Set( ( uint )durationAligned );
             }

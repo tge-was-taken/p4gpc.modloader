@@ -41,7 +41,7 @@ namespace modloader.Redirectors.Xact
             }
         }
 
-        private readonly ILogger mLogger;
+        private readonly SemanticLogger mLogger;
         private readonly ModDb mModDb;
         private readonly Dictionary<IntPtr, VirtualWaveBank> mWaveBankByHandle;
         private readonly Dictionary<string, VirtualWaveBank> mWaveBankByName;
@@ -51,7 +51,7 @@ namespace modloader.Redirectors.Xact
 
         public XactRedirector(ILogger logger, ModDb modDb)
         {
-            mLogger = logger;
+            mLogger = new SemanticLogger( logger, "[modloader:XactRedirector]" );
             mModDb = modDb;
             mWaveBankByName = new Dictionary<string, VirtualWaveBank>();
             mWaveBankByHandle = new Dictionary<IntPtr, VirtualWaveBank>();
@@ -106,7 +106,7 @@ namespace modloader.Redirectors.Xact
                     share, createDisposition, createOptions, eaBuffer, eaLength );
 
                 ProcessWaveBankEntries( newFilePath, soundBank, waveBank );
-                Debug( $"{newFilePath} registered" );
+                mLogger.Debug( $"{newFilePath} registered" );
             }
             else if ( !mSoundBankByName.TryGetValue( fileName, out soundBank ))
             {
@@ -124,7 +124,7 @@ namespace modloader.Redirectors.Xact
                 // Find associated wave bank
                 if (!mWaveBankByName.TryGetValue(soundBank.Native.WaveBankNames[0].Name, out waveBank))
                 {
-                    Error( $"{newFilePath} Can't find wavebank!" );
+                    mLogger.Error( $"{newFilePath} Can't find wavebank!" );
                 }
                 else
                 {
@@ -135,7 +135,7 @@ namespace modloader.Redirectors.Xact
             if ( isWaveBank )
             {
                 mWaveBankByHandle.Add( handle, waveBank );
-                Debug( $"{waveBank.FileName} Hnd {handle} registered" );
+                mLogger.Debug( $"{waveBank.FileName} Hnd {handle} registered" );
             }
             else
             {
@@ -154,9 +154,9 @@ namespace modloader.Redirectors.Xact
                 if ( File.Exists( redirectFilePath ) )
                 {
                     if ( waveBank.Entries[i].Redirect( redirectFilePath ) )
-                        Info( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirected to {redirectFilePath}" );
+                        mLogger.Info( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirected to {redirectFilePath}" );
                     else
-                        Error( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirecting to {redirectFilePath} failed!" );
+                        mLogger.Error( $"{waveBank.FileName} Index: {i} Cue: {waveBank.Entries[i].CueName} redirecting to {redirectFilePath} failed!" );
 
                     return true;
                 }
@@ -233,29 +233,29 @@ namespace modloader.Redirectors.Xact
                     for ( int j = 0; j < mCache.Length; j++ )
                     {
                         var cacheEntry = mCache[j].Entry;
-                        if ( mCache[j].Miss() ) Debug( $"{waveBank.FileName} Hnd: {handle} Index: {j} {cacheEntry.CueName} removed from cache" );
+                        if ( mCache[j].Miss() ) mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {j} {cacheEntry.CueName} removed from cache" );
                     }
 
-                    Info( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Data access Offset: 0x{absOffset:X8} Length: 0x{length:X8}" );
+                    mLogger.Info( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Data access Offset: 0x{absOffset:X8} Length: 0x{length:X8}" );
                     status = mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
                 }
                 else
                 {
-                    Info( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Data access Offset: 0x{absOffset:X8} Length: 0x{length:X8} redirected to {entry.FilePath}" );
+                    mLogger.Info( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Data access Offset: 0x{absOffset:X8} Length: 0x{length:X8} redirected to {entry.FilePath}" );
                     status = NtStatus.Success;
 
                     if ( fileDataOffset < 0 )
                     {
-                        Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Offset is before start of data!!!" );
+                        mLogger.Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Offset is before start of data!!!" );
                         continue;
                     }
                     else if ( fileDataOffset > entry.FileSize )
                     {
-                        Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Offset is after end of data!!!" );
+                        mLogger.Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Offset is after end of data!!!" );
                         //continue;
                     }
 
-                    Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
+                    mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
 
                     // Get cached file stream if the file was previously opened or open a new file
                     Stream redirectedStream = null;
@@ -265,7 +265,7 @@ namespace modloader.Redirectors.Xact
                         {
                             // Found entry in cache, increase score
                             mCache[j].Hit();
-                            Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} loaded from cache" );
+                            mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} loaded from cache" );
                             redirectedStream = mCache[j].Stream;
                             break;
                         }
@@ -273,14 +273,14 @@ namespace modloader.Redirectors.Xact
                         {
                             // Entry is not the one we're looking for, so we lower its score
                             var cacheEntry = mCache[j].Entry;
-                            if ( mCache[j].Miss() ) Debug( $"{waveBank.FileName} Hnd: {handle} Index: {j} {cacheEntry.CueName} removed from cache" );
+                            if ( mCache[j].Miss() ) mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {j} {cacheEntry.CueName} removed from cache" );
                         }
                     }
 
                     if (redirectedStream == null)
                     {
                         // Wasn't found in cache
-                        Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} added to cache" );
+                        mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} added to cache" );
                         redirectedStream = entry.OpenRead();
                         for ( int j = 0; j < mCache.Length; j++ )
                         {
@@ -300,20 +300,20 @@ namespace modloader.Redirectors.Xact
                         SetBytesRead( handle, ( int )waveBank.FilePointer, ( int )length, ref ioStatus );
 
                         if ( readBytes != length )
-                            Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+                            mLogger.Error( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
 
-                        Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Wrote redirected file to buffer" );
+                        mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Wrote redirected file to buffer" );
                     }
                     catch ( Exception e )
                     {
-                        Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Unhandled exception thrown during reading {entry.FileName}: {e}" );
+                        mLogger.Debug( $"{waveBank.FileName} Hnd: {handle} Index: {i} {entry.CueName} Unhandled exception thrown during reading {entry.FileName}: {e}" );
                     }
                 }
             }
 
             if ( !handled )
             {
-                Error( $"{waveBank.FileName} Hnd: {handle} Unhandled file data read request!! Offset: 0x{absOffset:X8} Length: 0x{length:X8}" );
+                mLogger.Error( $"{waveBank.FileName} Hnd: {handle} Unhandled file data read request!! Offset: 0x{absOffset:X8} Length: 0x{length:X8}" );
                 status = mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
             }
 
@@ -354,13 +354,13 @@ namespace modloader.Redirectors.Xact
             }
             else
             {
-                Error( $"{waveBank.FileName} Hnd: {handle} Unexpected read request!! Offset: {effOffset:X8} Length: {length:X8}" );
+                mLogger.Error( $"{waveBank.FileName} Hnd: {handle} Unexpected read request!! Offset: {effOffset:X8} Length: {length:X8}" );
                 result = mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
             }
 
 
             if ( result != NtStatus.Success )
-                Error( $"{waveBank.FileName} Hnd: {handle} NtReadFile failed with {result}!!!" );
+                mLogger.Error( $"{waveBank.FileName} Hnd: {handle} NtReadFile failed with {result}!!!" );
 
             return result;
         }
@@ -380,7 +380,7 @@ namespace modloader.Redirectors.Xact
             }
             else
             {
-                Debug( $"NtQueryInformationFileImpl( IntPtr hfile = {hfile}, out Native.IO_STATUS_BLOCK ioStatusBlock, void* fileInformation, length = {length}, fileInformationClass = {fileInformationClass} )" );
+                mLogger.Debug( $"NtQueryInformationFileImpl( IntPtr hfile = {hfile}, out Native.IO_STATUS_BLOCK ioStatusBlock, void* fileInformation, length = {length}, fileInformationClass = {fileInformationClass} )" );
             }
 
             return result;
@@ -393,12 +393,12 @@ namespace modloader.Redirectors.Xact
                 if ( mWaveBankByHandle.TryGetValue( hfile, out var waveBank ) )
                 {
                     waveBank.FilePointer = *( long* )fileInformation;
-                    Debug( $"{waveBank.FileName} Hnd: {hfile} SetFilePointer -> 0x{waveBank.FilePointer:X8}" );
+                    mLogger.Debug( $"{waveBank.FileName} Hnd: {hfile} SetFilePointer -> 0x{waveBank.FilePointer:X8}" );
                 }
             }
             else
             {
-                Warning( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8}, " +
+                mLogger.Warning( $"SetInformationFileImpl(hfile = {hfile}, out ioStatusBlock, fileInformation = *0x{( long )fileInformation:X8}, " +
                     $"length = {length}, fileInformationClass = {fileInformationClass}" );
             }
 
@@ -407,12 +407,5 @@ namespace modloader.Redirectors.Xact
             // Spoof return value as we extend beyond the end of the file
             return NtStatus.Success;
         }
-
-        private void Info( string msg ) => mLogger?.WriteLine( $"[modloader:XactRedirector] I {msg}" );
-        private void Warning( string msg ) => mLogger?.WriteLine( $"[modloader:XactRedirector] W {msg}", mLogger.ColorYellow );
-        private void Error( string msg ) => mLogger?.WriteLine( $"[modloader:XactRedirector] E {msg}", mLogger.ColorRed );
-
-        [Conditional( "DEBUG" )]
-        private void Debug( string msg ) => mLogger?.WriteLine( $"[modloader:XactRedirector] D {msg}", mLogger.ColorGreen );
     }
 }
