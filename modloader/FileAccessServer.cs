@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using modloader.Hooking;
 using Reloaded.Hooks.Definitions;
@@ -91,6 +92,7 @@ namespace modloader
             _filters.Remove( filter );
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         private NtStatus NtQueryInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
@@ -106,6 +108,7 @@ namespace modloader
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         private NtStatus NtSetInformationFileImpl( IntPtr handle, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
@@ -124,6 +127,7 @@ namespace modloader
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         private unsafe NtStatus NtReadFileImpl( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext,
             ref IO_STATUS_BLOCK ioStatus, byte* buffer, uint length, LARGE_INTEGER* byteOffset, IntPtr key )
         {
@@ -150,6 +154,7 @@ namespace modloader
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         private NtStatus NtCreateFileImpl( out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
             ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
@@ -185,6 +190,7 @@ namespace modloader
         /// <summary>
         /// Default implementation of NtCreateFile when not accepted by any of the filters.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         NtStatus NtCreateFileDefault( out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes, ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare fileShare, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength, string newFilePath )
         {
             var ntStatus = _hooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes,
