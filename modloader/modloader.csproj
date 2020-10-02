@@ -6,39 +6,20 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <OutputType>WinExe</OutputType>
     <Version>1.2.0</Version>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<OutputPath>$(RELOADEDIIMODS)\p4gpc.modloader</OutputPath>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <OutputPath>$(RELOADEDII)\Mods\p4gpc.modloader</OutputPath>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <OutputPath>$(RELOADEDII)\Mods\p4gpc.modloader</OutputPath>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Native\**" />
-    <EmbeddedResource Remove="Native\**" />
-    <None Remove="Native\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="ModConfig.json" />
-    <None Remove="Preview.png" />
-    <None Remove="Publish.ps1" />
-    <None Remove="ReloadedGithubUpdater.json" />
-  </ItemGroup>
-
-  <ItemGroup>
+	<ItemGroup>
     <Content Include="ModConfig.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Preview.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="ReloadedGithubUpdater.json" />
+    <Content Include="ReloadedGithubUpdater.json">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -51,21 +32,4 @@
   <ItemGroup>
     <ProjectReference Include="..\external\Amicitia.IO\src\Amicitia.IO\Amicitia.IO.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <NativeLibs Remove="ReloadedGithubUpdater.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <NativeLibs Remove="P4GPCModLoader.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <NativeLibs Remove="SemanticLogger.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <NativeLibs Remove="FileLoggingLogger.cs" />
-  </ItemGroup>
-
 </Project>
