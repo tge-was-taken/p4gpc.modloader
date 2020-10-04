@@ -24,13 +24,7 @@ namespace modloader
 
         public P4GPCModLoader( ILogger logger, Config configuration, Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks hooks )
         {
-            // Enable file logging only if console is enabled
-            // performance impact would be too great otherwise
-            if ( Native.GetConsoleWindow() != IntPtr.Zero )
-                mLogger = new FileLoggingLogger( logger, "p4gpc.modloader.log.txt" );
-            else
-                mLogger = logger;
-
+            mLogger = logger;
             mConfiguration = configuration;
             mHooks = hooks;
 

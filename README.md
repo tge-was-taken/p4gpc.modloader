@@ -72,7 +72,3 @@ The TXTH file is based on the format described [here](https://github.com/losnoco
 
 ## Advanced usage
 Modified files can be loaded without the need of a mod folder if placed in the root of the mods directory. These files take priority over other mods.
-
-# Notes
-If the console is enabled in Reloaded you can see which files are accessed during gameplay. 
-Unless you need this info, I'd recommend you to disable the console for performance reasons as it causes stuttering especially during movies.
