@@ -41,7 +41,7 @@ namespace modloader.Hooking
 
 							if ( importFunctionName->Name == functionName )
 							{
-								return new IndirectHook<TFunction>( new IntPtr( &firstThunk->Function ), function );
+								return new IndirectHook<TFunction>( new IntPtr( &firstThunk->Function ), function, hookFactory);
 							}
 
 							++originalFirstThunk;
@@ -58,7 +58,6 @@ namespace modloader.Hooking
 
 		private class IndirectHook<TFunction> : IHook<TFunction>
 		{
-			private readonly static bool sIs64Bit = IntPtr.Size == 8;
 			private readonly IntPtr mAddressToFunctionPointer;
 
 			public bool IsHookEnabled { get; private set; }
@@ -68,17 +67,13 @@ namespace modloader.Hooking
 			public IntPtr OriginalFunctionWrapperAddress { get; }
 			public IReverseWrapper<TFunction> ReverseWrapper { get; }
 
-			public IndirectHook( IntPtr addressToFunctionPointer, TFunction function )
+			public IndirectHook(IntPtr addressToFunctionPointer, TFunction function, IReloadedHooks hookFactory)
 			{
 				mAddressToFunctionPointer = addressToFunctionPointer;
 				OriginalFunctionAddress = *( IntPtr* )mAddressToFunctionPointer;
-				OriginalFunction = sIs64Bit ?
-					Reloaded.Hooks.X64.Wrapper.Create<TFunction>( ( long )OriginalFunctionAddress, out IntPtr originalFunctionWrapperAddress ) :
-					Reloaded.Hooks.X86.Wrapper.Create<TFunction>( ( long )OriginalFunctionAddress, out originalFunctionWrapperAddress );
+				OriginalFunction = hookFactory.CreateWrapper<TFunction>( (long) OriginalFunctionAddress, out IntPtr originalFunctionWrapperAddress );
 				OriginalFunctionWrapperAddress = OriginalFunctionAddress;
-				ReverseWrapper = sIs64Bit ?
-					( IReverseWrapper<TFunction> )new Reloaded.Hooks.X64.ReverseWrapper<TFunction>( function ) :
-					( IReverseWrapper<TFunction> )new Reloaded.Hooks.X86.ReverseWrapper<TFunction>( function );
+                ReverseWrapper = hookFactory.CreateReverseWrapper(function);
 			}
 
 			public IHook<TFunction> Activate()
@@ -246,7 +241,7 @@ namespace modloader.Hooking
 		[DllImport( "kernel32.dll" )]
 		private static extern IntPtr GetModuleHandle( string lpModuleName );
 
-		[DllImport( "kernel32", SetLastError = true, CharSet = CharSet.Ansi )]
+		[DllImport( "kernel32.dll", CharSet = CharSet.Ansi )]
 		private static extern IntPtr LoadLibrary( [MarshalAs( UnmanagedType.LPStr )] string lpFileName );
 	}
 }
