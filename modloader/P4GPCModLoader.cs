@@ -55,7 +55,7 @@ namespace modloader
             mFileAccessServer.Activate();
         }
 
-        private void TrySetConsoleEncoding( Encoding encoding )
+        public void TrySetConsoleEncoding( Encoding encoding )
         {
             if ( Native.GetConsoleWindow() != IntPtr.Zero )
             {
