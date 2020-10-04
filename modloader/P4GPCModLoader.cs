@@ -42,11 +42,11 @@ namespace modloader
             var modDb = new ModDb( mConfiguration.ModsDirectory, mConfiguration.EnabledMods );
 
             // DW_PACK (PAC) redirector
-            mDwPackRedirector = new DwPackRedirector( mLogger, modDb );
+            mDwPackRedirector = new DwPackRedirector( mLogger, modDb, configuration );
             mFileAccessServer.AddClient( mDwPackRedirector );
 
             // XACT (XWB, XSB) redirector
-            mXactRedirector = new XactRedirector( mLogger, modDb );
+            mXactRedirector = new XactRedirector( mLogger, modDb, configuration );
             mFileAccessServer.AddClient( mXactRedirector );
         }
 
