@@ -11,6 +11,7 @@ using modloader.Mods;
 using System.Runtime.CompilerServices;
 using modloader.Utilities;
 using Microsoft.Win32.SafeHandles;
+using modloader.Configuration;
 
 namespace modloader.Redirectors.DwPack
 {
@@ -24,9 +25,9 @@ namespace modloader.Redirectors.DwPack
         private VirtualDwPackEntry mCachedFile;
         private Stream mCachedFileStream;
 
-        public DwPackRedirector( ILogger logger, ModDb modDb )
+        public DwPackRedirector(ILogger logger, ModDb modDb, Config configuration)
         {
-            mLogger = new SemanticLogger( logger, "[modloader:DwPackRedirector]" );
+            mLogger = new SemanticLogger( logger, "[modloader:DwPackRedirector]", configuration );
             mModDb = modDb;
             mPacksByHandle = new Dictionary<IntPtr, VirtualDwPack>();
             mPacksByName = new Dictionary<string, VirtualDwPack>( StringComparer.OrdinalIgnoreCase );

@@ -17,9 +17,11 @@ Development releases can be found [here](https://ci.appveyor.com/project/TGEnigm
 # Building
 Note: skip this section if you're installing an existing build from the releases page.
 * Install Reloaded II (see dependencies)
-* Add an environment variable to your path named RELOADEDII set to the root of the Reloaded installation folder
+* Add an environment variable named RELOADEDIIMODS set to the Mods folder used by Reloaded.\* 
 * Log off and back on to apply the changes
 * Open the solution in Visual Studio 2019 and build as usual.
+
+By default this is a folder called `Mods` in the root of the Reloaded installation folder, however can be overwritten in `%AppData%/Reloaded-Mod-Loader-II/ReloadedII.json`.
 
 # Installation
 * Download & install Reloaded II (see dependencies)
@@ -70,7 +72,3 @@ The TXTH file is based on the format described [here](https://github.com/losnoco
 
 ## Advanced usage
 Modified files can be loaded without the need of a mod folder if placed in the root of the mods directory. These files take priority over other mods.
-
-# Notes
-If the console is enabled in Reloaded you can see which files are accessed during gameplay. 
-Unless you need this info, I'd recommend you to disable the console for performance reasons as it causes stuttering especially during movies.

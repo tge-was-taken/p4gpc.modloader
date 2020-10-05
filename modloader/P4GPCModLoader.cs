@@ -4,9 +4,9 @@ using Reloaded.Mod.Interfaces;
 using modloader.Redirectors.DwPack;
 using modloader.Redirectors.Xact;
 using System;
+using System.Diagnostics;
 using modloader.Utilities;
 using modloader.Mods;
-using System.Diagnostics;
 using System.Text;
 
 namespace modloader
@@ -24,13 +24,7 @@ namespace modloader
 
         public P4GPCModLoader( ILogger logger, Config configuration, Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks hooks )
         {
-            // Enable file logging only if console is enabled
-            // performance impact would be too great otherwise
-            if ( Native.GetConsoleWindow() != IntPtr.Zero )
-                mLogger = new FileLoggingLogger( logger, "p4gpc.modloader.log.txt" );
-            else
-                mLogger = logger;
-
+            mLogger = logger;
             mConfiguration = configuration;
             mHooks = hooks;
 
@@ -40,7 +34,7 @@ namespace modloader
 
             // Init
             TrySetConsoleEncoding( EncodingCache.ShiftJIS );
-            mLogger.WriteLine( "[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v1.1.2" );
+            mLogger.WriteLine( $"[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v{typeof(P4GPCModLoader).Assembly.GetName().Version}" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );
 
@@ -48,11 +42,11 @@ namespace modloader
             var modDb = new ModDb( mConfiguration.ModsDirectory, mConfiguration.EnabledMods );
 
             // DW_PACK (PAC) redirector
-            mDwPackRedirector = new DwPackRedirector( mLogger, modDb );
+            mDwPackRedirector = new DwPackRedirector( mLogger, modDb, configuration );
             mFileAccessServer.AddClient( mDwPackRedirector );
 
             // XACT (XWB, XSB) redirector
-            mXactRedirector = new XactRedirector( mLogger, modDb );
+            mXactRedirector = new XactRedirector( mLogger, modDb, configuration );
             mFileAccessServer.AddClient( mXactRedirector );
         }
 
@@ -61,7 +55,7 @@ namespace modloader
             mFileAccessServer.Activate();
         }
 
-        private void TrySetConsoleEncoding( Encoding encoding )
+        public void TrySetConsoleEncoding( Encoding encoding )
         {
             if ( Native.GetConsoleWindow() != IntPtr.Zero )
             {

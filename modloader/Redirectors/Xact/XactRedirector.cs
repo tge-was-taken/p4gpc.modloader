@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
+using modloader.Configuration;
 using modloader.Formats.Xact;
 using modloader.Mods;
 using modloader.Utilities;
@@ -49,9 +50,9 @@ namespace modloader.Redirectors.Xact
         private readonly Dictionary<IntPtr, VirtualSoundBank> mSoundBankByHandle;
         private readonly Dictionary<string, VirtualSoundBank> mSoundBankByName;
 
-        public XactRedirector(ILogger logger, ModDb modDb)
+        public XactRedirector(ILogger logger, ModDb modDb, Config configuration)
         {
-            mLogger = new SemanticLogger( logger, "[modloader:XactRedirector]" );
+            mLogger = new SemanticLogger( logger, "[modloader:XactRedirector]", configuration );
             mModDb = modDb;
             mWaveBankByName = new Dictionary<string, VirtualWaveBank>();
             mWaveBankByHandle = new Dictionary<IntPtr, VirtualWaveBank>();

@@ -4,6 +4,7 @@ using Reloaded.Mod.Interfaces;
 using Reloaded.Mod.Interfaces.Internal;
 using modloader.Configuration;
 using modloader.Configuration.Implementation;
+using modloader.Utilities;
 
 namespace modloader
 {
@@ -46,6 +47,7 @@ namespace modloader
             _modLoader = ( IModLoader )loader;
             _logger = ( ILogger )_modLoader.GetLogger();
             _modLoader.GetController<IReloadedHooks>().TryGetTarget( out _hooks );
+            _modLoader.OnModLoaderInitialized += OnModLoaderInitialized;
 
             // Your config file is in Config.json.
             // Need a different name, format or more configurations? Modify the `Configurator`.
@@ -59,6 +61,12 @@ namespace modloader
             _P4GPCModLoader.Activate();
         }
 
+        private void OnModLoaderInitialized()
+        {
+            _logger.WaitForConsoleInit( default );
+            _P4GPCModLoader.TrySetConsoleEncoding( EncodingCache.ShiftJIS );
+        }
+
         private void OnConfigurationUpdated( IConfigurable obj )
         {
             /*
@@ -68,7 +76,7 @@ namespace modloader
 
             // Replace configuration with new.
             _configuration = ( Config )obj;
-            _logger.WriteLine( $"[{MyModId}] Config Updated: Applying" );
+            _logger.WriteLineAsync( $"[{MyModId}] Config Updated: Applying" );
 
             // Apply settings from configuration.
             // ... your code here.

@@ -20,6 +20,10 @@ namespace modloader.Configuration
         [Description( "Path to the directory mods are loaded from." )]
         public string ModsDirectory { get; set; } = "mods";
 
+        [DisplayName( "Verbose Mode" )]
+        [Description( "Logs non-error information about file redirections and other internal events." )]
+        public bool VerboseMode { get; set; } = false;
+
         [DisplayName( "Enabled mods" )]
         [Description( "List of mods that should be loaded in order (first mod takes priority)" )]
         public List<string> EnabledMods { get; set; } = new List<string>();
