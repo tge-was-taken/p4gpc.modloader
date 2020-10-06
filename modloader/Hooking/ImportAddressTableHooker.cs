@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using Reloaded.Hooks.Definitions;
+using Reloaded.Memory.Kernel32;
 using Reloaded.Memory.Sources;
 
 namespace modloader.Hooking
@@ -79,19 +80,20 @@ namespace modloader.Hooking
 			public IHook<TFunction> Activate()
 			{
 				IsHookActivated = true;
+				Memory.CurrentProcess.ChangePermission( mAddressToFunctionPointer , sizeof(IntPtr), Kernel32.MEM_PROTECTION.PAGE_EXECUTE_READWRITE );
 				Enable();
 				return this;
 			}
 
 			public void Disable()
 			{
-				Memory.CurrentProcess.SafeWrite( mAddressToFunctionPointer, OriginalFunctionAddress );
+				Memory.CurrentProcess.Write( mAddressToFunctionPointer, OriginalFunctionAddress );
 				IsHookEnabled = false;
 			}
 
 			public void Enable()
 			{
-				Memory.CurrentProcess.SafeWrite( mAddressToFunctionPointer, ReverseWrapper.WrapperPointer );
+				Memory.CurrentProcess.Write( mAddressToFunctionPointer, ReverseWrapper.WrapperPointer );
 				IsHookEnabled = true;
 			}
 		}
