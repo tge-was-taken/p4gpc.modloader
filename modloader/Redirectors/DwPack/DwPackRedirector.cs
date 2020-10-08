@@ -64,10 +64,11 @@ namespace modloader.Redirectors.DwPack
                 mPacksByName[filePath] = pack = new VirtualDwPack( mLogger );
 
                 // Load file
-                using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024 ) )
                     pack.LoadFromFile( filePath, fileStream );
 
                 // Reopen file to reset it
+                mHooks.CloseHandleHook.OriginalFunction( handle );
                 result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
                     fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
 
