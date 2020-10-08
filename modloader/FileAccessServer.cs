@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using modloader.Hooking;
 using Reloaded.Hooks.Definitions;
+using Reloaded.Mod.Interfaces;
 using static modloader.Native;
 
 namespace modloader
@@ -22,10 +23,12 @@ namespace modloader
         private List<FileAccessClient> _filters = new List<FileAccessClient>();
         private FileAccessServerHooks _hooks;
 
+        private ILogger _logger;
         private bool _activated;
 
-        public FileAccessServer( IReloadedHooks hookFactory, NativeFunctions functions )
+        public FileAccessServer( IReloadedHooks hookFactory, NativeFunctions functions, ILogger logger )
         {
+            _logger = logger;
             _hooks = new FileAccessServerHooks(
                 functions.NtCreateFile.Hook( NtCreateFileImpl ),
                 functions.NtReadFile.Hook( NtReadFileImpl ),
@@ -43,14 +46,13 @@ namespace modloader
                     if (filter.Accept(handle))
                         return filter.CloseHandleImpl(handle);
                 }
-
-                return _hooks.CloseHandleHook.OriginalFunction(handle);
             }
-            catch (SEHException e)
+            catch (Exception e)
             {
-                Console.WriteLine($"[modloader:FileAccessServer] {e}");
-                return false;
+                _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(CloseHandleImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
+
+            return _hooks.CloseHandleHook.OriginalFunction(handle);
         }
 
         public void Activate()
@@ -89,11 +91,17 @@ namespace modloader
         private NtStatus NtQueryInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
-
-            foreach (var filter in _filters)
+            try
             {
-                if (filter.Accept(hfile))
-                    return filter.NtQueryInformationFileImpl(hfile, out ioStatusBlock, fileInformation, length, fileInformationClass);
+                foreach (var filter in _filters)
+                {
+                    if (filter.Accept(hfile))
+                        return filter.NtQueryInformationFileImpl(hfile, out ioStatusBlock, fileInformation, length, fileInformationClass);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(CloseHandleImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
 
             return _hooks.NtQueryInformationFileHook.OriginalFunction(hfile, out ioStatusBlock, fileInformation, length, fileInformationClass);
@@ -103,15 +111,22 @@ namespace modloader
         private NtStatus NtSetInformationFileImpl( IntPtr handle, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
-            if (fileInformationClass == FileInformationClass.FilePositionInformation && _handleToInfoMap.ContainsKey(handle))
-                _handleToInfoMap[handle].FilePointer = *(long*)fileInformation;
-
-            foreach (var filter in _filters)
+            try
             {
-                if (filter.Accept(handle))
-                    return filter.NtSetInformationFileImpl(handle, out ioStatusBlock, fileInformation, length, fileInformationClass);
-            }
+                if (fileInformationClass == FileInformationClass.FilePositionInformation && _handleToInfoMap.ContainsKey(handle))
+                    _handleToInfoMap[handle].FilePointer = *(long*)fileInformation;
 
+                foreach (var filter in _filters)
+                {
+                    if (filter.Accept(handle))
+                        return filter.NtSetInformationFileImpl(handle, out ioStatusBlock, fileInformation, length, fileInformationClass);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(NtSetInformationFileImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
+            }
+            
             return _hooks.NtSetInformationFileHook.OriginalFunction(handle, out ioStatusBlock, fileInformation, length, fileInformationClass);
         }
 
@@ -119,23 +134,21 @@ namespace modloader
         private unsafe NtStatus NtReadFileImpl( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext,
             ref IO_STATUS_BLOCK ioStatus, byte* buffer, uint length, LARGE_INTEGER* byteOffset, IntPtr key )
         {
-            foreach (var filter in _filters)
+            try
             {
-                if (filter.Accept(handle))
+                foreach (var filter in _filters)
                 {
-                    try
+                    if (filter.Accept(handle))
                     {
                         return filter.NtReadFileImpl(handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key);
                     }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine($"[modloader:FileAccessServer] Hnd: {handle} NtReadFileImpl exception thrown: {e}");
-                        return _hooks.NtReadFileHook.OriginalFunction(handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key);
-                    }
-
                 }
             }
-
+            catch (Exception e)
+            {
+                _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(NtReadFileImpl)} Exception Thrown: Hnd: {handle} {e.Message}\nStack Trace: {e.StackTrace}");
+            }
+            
             return _hooks.NtReadFileHook.OriginalFunction(handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key);
         }
 
@@ -143,30 +156,39 @@ namespace modloader
         private NtStatus NtCreateFileImpl( out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
             ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
-            string oldFileName = objectAttributes.ObjectName.ToString();
-            if (!TryGetFullPath(oldFileName, out var newFilePath))
-                return _hooks.NtCreateFileHook.OriginalFunction(out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
-                    fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength);
-
-            // Blacklist DLLs to prevent JIT from locking when new assemblies used by this method are loaded.
-            // Might want to disable some other extensions in the future; but this is just a temporary bugfix.
-            if (string.Equals(Path.GetExtension(newFilePath), ".dll", StringComparison.OrdinalIgnoreCase))
-                return NtCreateFileDefault(out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength, newFilePath);
-
-            NtStatus ret;
-            foreach (var filter in _filters)
+            try
             {
-                if (filter.Accept(newFilePath))
-                {
-                    ret = filter.NtCreateFileImpl(newFilePath, out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
+                string oldFileName = objectAttributes.ObjectName.ToString();
+                if (!TryGetFullPath(oldFileName, out var newFilePath))
+                    return _hooks.NtCreateFileHook.OriginalFunction(out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
                         fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength);
 
-                    _handleToInfoMap[handle] = new FileInfo(newFilePath, 0);
-                    return ret;
+                // Blacklist DLLs to prevent JIT from locking when new assemblies used by this method are loaded.
+                // Might want to disable some other extensions in the future; but this is just a temporary bugfix.
+                if (string.Equals(Path.GetExtension(newFilePath), ".dll", StringComparison.OrdinalIgnoreCase))
+                    return NtCreateFileDefault(out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength, newFilePath);
+
+                NtStatus ret;
+                foreach (var filter in _filters)
+                {
+                    if (filter.Accept(newFilePath))
+                    {
+                        ret = filter.NtCreateFileImpl(newFilePath, out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
+                            fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength);
+
+                        _handleToInfoMap[handle] = new FileInfo(newFilePath, 0);
+                        return ret;
+                    }
                 }
+
+                return NtCreateFileDefault( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength, newFilePath );
+            }
+            catch (Exception e)
+            {
+                _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(NtCreateFileImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
 
-            return NtCreateFileDefault(out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength, newFilePath);
+            return _hooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
         }
 
         /// <summary>
