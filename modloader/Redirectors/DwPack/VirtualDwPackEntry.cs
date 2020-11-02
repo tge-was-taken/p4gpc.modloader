@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Text;
-using modloader.Formats.DwPack;
+﻿using System.IO;
 using modloader.Mods;
-using Reloaded.Mod.Interfaces;
+using PreappPartnersLib.FileSystems;
 
 namespace modloader.Redirectors.DwPack
 {
@@ -15,7 +10,6 @@ namespace modloader.Redirectors.DwPack
 
         public VirtualDwPack Pack { get; private set; }
         public DwPackEntry* Native { get; private set; }    
-        public int Index { get; private set; }
 
         public bool RedirectAttempted { get; private set; }
         public bool IsRedirected { get; private set; }
@@ -23,37 +17,41 @@ namespace modloader.Redirectors.DwPack
         public string RedirectedFileName { get; private set; }
         public long RedirectedFileSize { get; private set; }
 
-        public VirtualDwPackEntry( SemanticLogger logger, VirtualDwPack pack, DwPackEntry* entry, int index )
+        public VirtualDwPackEntry( SemanticLogger logger, VirtualDwPack pack, DwPackEntry* entry )
         {
             mLogger = logger;
             Pack = pack;
             Native = entry;
-            Index = index;
         }
 
-        public void EnsureRedirected( ModDb modDb )
-        {
-            if ( !RedirectAttempted )
-                TryRedirect( modDb );
-        }
-
-        public bool TryRedirect( ModDb modDb )
+        public bool Redirect( ModDb modDb )
         {
             RedirectAttempted = true;
 
             foreach ( var mod in modDb.Mods )
             {
-                var redirectedFilePath = Path.Combine(mod.LoadDirectory, Pack.FileName, Native->Path);
-                if ( mod.Files.Contains( redirectedFilePath ) )
+                var pacRedirectFilePath = Path.Combine(mod.LoadDirectory, Pack.FileName, Native->Path);
+                if ( mod.Files.Contains( pacRedirectFilePath ) )
                 {
-                    Redirect( redirectedFilePath );
-                    mLogger.Info( $"{Pack.FileName} {Native->Path} Redirected to {redirectedFilePath}" );
+                    // Replacement file stored in folder named after pac file
+                    Redirect( pacRedirectFilePath );
+                    mLogger.Info( $"{Pack.FileName} {Native->Path} Redirected to {pacRedirectFilePath}" );
                     return true;
                 }
-                else
+
+                if ( Pack.Cpk != null )
                 {
-                    mLogger.Debug( $"No redirection for {Native->Path} because {redirectedFilePath} does not exist." );
+                    var cpkRedirectFilePath = Path.Combine( mod.LoadDirectory, Pack.Cpk.FileName, Native->Path );
+                    if ( mod.Files.Contains( cpkRedirectFilePath ) )
+                    {
+                        // Replacement file stored in folder named after cpk file
+                        Redirect( cpkRedirectFilePath );
+                        mLogger.Info( $"{Pack.FileName} {Native->Path} Redirected to {cpkRedirectFilePath}" );
+                        return true;
+                    }
                 }
+
+                mLogger.Debug( $"No redirection for {Native->Path}." );
             }
 
             return false;

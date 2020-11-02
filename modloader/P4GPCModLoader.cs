@@ -8,6 +8,7 @@ using System.Diagnostics;
 using modloader.Utilities;
 using modloader.Mods;
 using System.Text;
+using modloader.Redirectors.Cpk;
 
 namespace modloader
 {
@@ -21,6 +22,7 @@ namespace modloader
         private FileAccessServer mFileAccessServer;
         private DwPackRedirector mDwPackRedirector;
         private XactRedirector mXactRedirector;
+        private CpkRedirector mCpkRedirector;
 
         public P4GPCModLoader( ILogger logger, Config configuration, Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks hooks )
         {
@@ -41,8 +43,12 @@ namespace modloader
             // Load mods
             var modDb = new ModDb( mConfiguration.ModsDirectory, mConfiguration.EnabledMods );
 
+            // CPK redirector
+            mCpkRedirector = new CpkRedirector( mLogger, modDb, configuration );
+            mFileAccessServer.AddClient( mCpkRedirector );
+
             // DW_PACK (PAC) redirector
-            mDwPackRedirector = new DwPackRedirector( mLogger, modDb, configuration );
+            mDwPackRedirector = new DwPackRedirector( mLogger, modDb, configuration, mCpkRedirector );
             mFileAccessServer.AddClient( mDwPackRedirector );
 
             // XACT (XWB, XSB) redirector

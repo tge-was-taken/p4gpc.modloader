@@ -197,7 +197,7 @@ namespace modloader.Redirectors.Xact
             return mHooks.CloseHandleHook.OriginalFunction( handle );
         }
 
-        private void SetBytesRead( IntPtr handle, int offset, int length, ref IO_STATUS_BLOCK ioStatus )
+        private void SetBytesRead( IntPtr handle, long offset, int length, ref IO_STATUS_BLOCK ioStatus )
         {
             offset += length;
             NtSetInformationFileImpl( handle, out _, &offset, sizeof( long ), FileInformationClass.FilePositionInformation );
@@ -327,18 +327,14 @@ namespace modloader.Redirectors.Xact
             if ( !mWaveBankByHandle.TryGetValue( handle, out var waveBank ) )
                 return mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
 
-            var offset = waveBank.FilePointer;
-            var reqOffset = ( byteOffset != null || ( byteOffset != null && byteOffset->HighPart == -1 && byteOffset->LowPart == FILE_USE_FILE_POINTER_POSITION )) ?
-                byteOffset->QuadPart : -1;
-            var effOffset = reqOffset == -1 ? offset : reqOffset;
-
+            var effOffset = Utils.ResolveReadFileOffset( waveBank.FilePointer, byteOffset );
             var result = NtStatus.Success;
             var waveDataOffset = waveBank.Native.Header->Segments[(int)WaveBankSegmentIndex.EntryWaveData].Offset;
             if ( ( effOffset + length ) <= waveDataOffset )
             {
                 // Header read
                 Unsafe.CopyBlock( buffer, waveBank.Native.Ptr + effOffset, length );
-                SetBytesRead( handle, (int)offset, (int)length, ref ioStatus );
+                SetBytesRead( handle, (int)waveBank.FilePointer, (int)length, ref ioStatus );
                 result = NtStatus.Success;
             }
             else if ( effOffset >= waveDataOffset && effOffset < waveBank.VirtualFileSize )

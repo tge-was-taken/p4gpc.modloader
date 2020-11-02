@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Reloaded.Mod.Interfaces;
-using modloader.Formats.DwPack;
 using static modloader.Native;
 using modloader.Mods;
 using System.Runtime.CompilerServices;
-using modloader.Utilities;
 using Microsoft.Win32.SafeHandles;
 using modloader.Configuration;
+using PreappPartnersLib.FileSystems;
+using modloader.Redirectors.Cpk;
+using System.Runtime.InteropServices;
 
 namespace modloader.Redirectors.DwPack
 {
@@ -20,17 +20,29 @@ namespace modloader.Redirectors.DwPack
         private static readonly Regex sPacFileNameRegex = new Regex(@".+\d{5}.pac", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private readonly SemanticLogger mLogger;
         private readonly ModDb mModDb;
-        private readonly Dictionary<IntPtr, VirtualDwPack> mPacksByHandle;
+        private readonly CpkRedirector mCpkRedirector;
+        private readonly Dictionary<IntPtr, VirtualDwPackHandle> mPacksByHandle;
         private readonly Dictionary<string, VirtualDwPack> mPacksByName;
+        private readonly Dictionary<VirtualDwPack, IntPtr> mHandleByPack;
         private VirtualDwPackEntry mCachedFile;
         private Stream mCachedFileStream;
+        private List<VirtualCpk> mLoadedCpks;
 
-        public DwPackRedirector(ILogger logger, ModDb modDb, Config configuration)
+        public DwPackRedirector(ILogger logger, ModDb modDb, Config configuration, CpkRedirector cpkRedirector)
         {
             mLogger = new SemanticLogger( logger, "[modloader:DwPackRedirector]", configuration );
             mModDb = modDb;
-            mPacksByHandle = new Dictionary<IntPtr, VirtualDwPack>();
+            mPacksByHandle = new Dictionary<IntPtr, VirtualDwPackHandle>();
             mPacksByName = new Dictionary<string, VirtualDwPack>( StringComparer.OrdinalIgnoreCase );
+            mHandleByPack = new Dictionary<VirtualDwPack, IntPtr>();
+            mCpkRedirector = cpkRedirector;
+            mCpkRedirector.CpkLoaded += OnCpkLoaded;
+            mLoadedCpks = new List<VirtualCpk>();
+        }
+
+        private void OnCpkLoaded( object sender, VirtualCpk e )
+        {
+            mLoadedCpks.Add( e );
         }
 
         public override bool Accept( string newFilePath )
@@ -48,8 +60,19 @@ namespace modloader.Redirectors.DwPack
 
         public override bool CloseHandleImpl( IntPtr handle )
         {
+            var pack = mPacksByHandle[ handle ];
             mPacksByHandle.Remove( handle );
+            mHandleByPack.Remove( pack.Instance );
             return mHooks.CloseHandleHook.OriginalFunction( handle );
+        }
+
+        [DllImport( "kernel32.dll", CharSet = CharSet.Auto, SetLastError = true )]
+        private static extern bool CreatePipe( out IntPtr hReadPipe, out IntPtr hWritePipe, IntPtr lpPipeAttributes, int nSize );
+
+        private IntPtr GenerateHandle()
+        {
+            CreatePipe( out var temp1, out var temp2, IntPtr.Zero, 0 );
+            return temp1;
         }
 
         public override Native.NtStatus NtCreateFileImpl( string filePath, out IntPtr handle, FileAccess access,
@@ -59,29 +82,57 @@ namespace modloader.Redirectors.DwPack
             var result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
                 fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
 
+
             if ( !mPacksByName.TryGetValue( filePath, out var pack ) )
             {
-                mPacksByName[filePath] = pack = new VirtualDwPack( mLogger );
+                mPacksByName[ filePath ] = pack = new VirtualDwPack( mLogger, filePath );
 
-                // Load file
-                using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
-                    pack.LoadFromFile( filePath, fileStream );
+                var pacIndex = int.Parse( pack.FileName.Substring( pack.FileName.Length - 5, 5 ) );
+                var cpkName = pack.FileName.Substring( 0, pack.FileName.Length - 5 );
+                var cpk = mLoadedCpks.Find( x => x.FileName.Contains( cpkName ) && x.Entries.Any( y => y.PacIndex == pacIndex ) );
+                pack.Cpk = cpk;
 
-                // Reopen file to reset it
-                result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
-                    fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
+                if ( result != NtStatus.ObjectNameNotFound )
+                {
+                    // Load file
+                    using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
+                        pack.LoadFromFile( filePath, fileStream );
+
+                    //pack.AddNewFiles( cpk );
+
+                    // Reopen file to reset it
+                    result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
+                        fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
+                }
+                else
+                {
+                    pack.LoadFromCpk( pacIndex, cpk );
+                    handle = GenerateHandle();
+                    ioStatus.Information = (IntPtr)1;
+                    ioStatus.Status = 0;
+                    result = NtStatus.Success;
+                }
 
                 mLogger.Debug( $"Registered {filePath}" );
 
                 // Entries are redirected as needed to improve startup performance
             }
+            else if ( result == NtStatus.ObjectNameNotFound )
+            {
+                // Find handle from name
+                if ( !mHandleByPack.TryGetValue( pack, out handle ) )
+                    handle = GenerateHandle();
 
-            mPacksByHandle[handle] = pack;
+                ioStatus.Information = (IntPtr)1;
+                ioStatus.Status = 0;
+                result = NtStatus.Success;
+            }
+
+            mPacksByHandle[ handle ] = new VirtualDwPackHandle() { Instance = pack };
+            mHandleByPack[ pack ] = handle;
             mLogger.Debug( $"Hnd {handle} {filePath} handle registered" );
             return result;
         }
-
-
 
         private NtStatus ReadFile( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext,
             ref Native.IO_STATUS_BLOCK ioStatus, byte* buffer, uint length, LARGE_INTEGER* byteOffset, IntPtr key,
@@ -105,24 +156,24 @@ namespace modloader.Redirectors.DwPack
                 // This is done as late as possible to improve startup times
                 if ( !entry.IsRedirected )
                 {
-                    mLogger.Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8}" );
+                    mLogger.Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8}" );
                     result = mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
                 }
                 else
                 {
-                    mLogger.Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8} redirected to {entry.RedirectedFilePath}" );
+                    mLogger.Info( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) Data access Offset: 0x{effOffset:X8} Length: 0x{length:X8} redirected to {entry.RedirectedFilePath}" );
                     result = NtStatus.Success;
 
                     if ( fileDataOffset < 0 )
                     {
-                        mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Offset is before start of data!!!" );
+                        mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) Offset is before start of data!!!" );
                     }
                     else if ( fileDataOffset > entry.RedirectedFileSize )
                     {
-                        mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Offset is after end of data!!!" );
+                        mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) Offset is after end of data!!!" );
                     }
 
-                    mLogger.Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
+                    mLogger.Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) Reading 0x{length:X8} bytes from redirected file at offset 0x{fileDataOffset:X8}" );
 
                     // Get cached file stream if the file was previously opened or open a new file
                     Stream redirectedStream;
@@ -145,13 +196,13 @@ namespace modloader.Redirectors.DwPack
                         SetBytesRead( handle, ( int )offset, ( int )length, ref ioStatus );
 
                         if ( readBytes != length )
-                            mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
+                            mLogger.Error( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) File read length doesnt match requested read length!! Expected 0x{length:X8}, Actual 0x{readBytes:X8}" );
 
-                        mLogger.Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Wrote redirected file to buffer" );
+                        mLogger.Debug( $"{pack.FileName} Hnd: {handle} {entry.Native->Path} Idx: ({i}) Wrote redirected file to buffer" );
                     }
                     catch ( Exception e )
                     {
-                        mLogger.Debug( $"{pack.FileName} Hnd: {handle} Index: {i} {entry.Native->Path} Unhandled exception thrown during reading {entry.RedirectedFilePath}: {e}" );
+                        mLogger.Debug( $"{pack.FileName} Hnd: {handle} Idx: {i} {entry.Native->Path} Unhandled exception thrown during reading {entry.RedirectedFilePath}: {e}" );
                     }
                 }
 
@@ -163,7 +214,7 @@ namespace modloader.Redirectors.DwPack
             return mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
         }
 
-        private void SetBytesRead( IntPtr handle, int offset, int length, ref IO_STATUS_BLOCK ioStatus )
+        private void SetBytesRead( IntPtr handle, long offset, int length, ref IO_STATUS_BLOCK ioStatus )
         {
             offset += length;
             NtSetInformationFileImpl( handle, out _, &offset, sizeof( long ), FileInformationClass.FilePositionInformation );
@@ -176,11 +227,10 @@ namespace modloader.Redirectors.DwPack
         public override unsafe Native.NtStatus NtReadFileImpl( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext,
             ref Native.IO_STATUS_BLOCK ioStatus, byte* buffer, uint length, LARGE_INTEGER* byteOffset, IntPtr key )
         {
-            //return mHooks.NtReadFileHook.OriginalFunction( handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key );
-
             NtStatus result;
-            var pack = mPacksByHandle[handle];
-            var offset = pack.FilePointer;
+            var packHandle = mPacksByHandle[handle];
+            var pack = packHandle.Instance;
+            var offset = packHandle.FilePointer;
             var reqOffset = ( byteOffset != null || ( byteOffset != null && byteOffset->HighPart == -1 && byteOffset->LowPart == FILE_USE_FILE_POINTER_POSITION )) ?
                 byteOffset->QuadPart : -1;
             var effOffset = reqOffset == -1 ? offset : reqOffset;
@@ -195,7 +245,8 @@ namespace modloader.Redirectors.DwPack
                     // This improves startup times greatly, as otherwise thousands of redirections could potentially have to be done at 
                     // startup
                     var entryIndex = ( int )( ( effOffset - sizeof( DwPackHeader ) ) / sizeof( DwPackEntry ) );
-                    pack.Entries[entryIndex].EnsureRedirected( mModDb );
+                    if ( !pack.Entries[ entryIndex ].RedirectAttempted )
+                        pack.Entries[ entryIndex ].Redirect( mModDb );
                 }
 
                 Unsafe.CopyBlock( buffer, pack.Native.Ptr + effOffset, length );
@@ -226,7 +277,7 @@ namespace modloader.Redirectors.DwPack
             {
                 var pack = mPacksByHandle[hfile];
                 pack.FilePointer = *( long* )fileInformation;
-                mLogger.Debug( $"{pack.FileName} Hnd: {hfile} SetFilePointer -> 0x{pack.FilePointer:X8}" );
+                mLogger.Debug( $"{pack.Instance.FileName} Hnd: {hfile} SetFilePointer -> 0x{pack.FilePointer:X8}" );
             }
             else
             {
