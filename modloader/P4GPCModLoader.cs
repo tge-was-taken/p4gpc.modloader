@@ -36,7 +36,9 @@ namespace modloader
 
             // Init
             TrySetConsoleEncoding( EncodingCache.ShiftJIS );
-            mLogger.WriteLine( $"[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v{typeof(P4GPCModLoader).Assembly.GetName().Version}" );
+            var version = typeof(P4GPCModLoader).Assembly.GetName().Version.ToString();
+            version = version.Substring(0, version.LastIndexOf('.'));
+            mLogger.WriteLine( $"[modloader] Persona 4 Golden (Steam) Mod loader by TGE (2020) v{version}" );
             mNativeFunctions = NativeFunctions.GetInstance( hooks );
             mFileAccessServer = new FileAccessServer( hooks, mNativeFunctions );
 
