@@ -1,8 +1,8 @@
 {
   "ModId": "p4gpc.modloader",
   "ModName": "Persona 4 Golden PC Mod Loader",
-  "ModAuthor": "TGE, Sewer56",
-  "ModVersion": "1.4.0",
+  "ModAuthor": "TGE, Sewer56, Tekka",
+  "ModVersion": "1.4.1",
   "ModDescription": "A mod loader for Persona 4 Golden (Steam)",
   "ModDll": "modloader.dll",
   "ModIcon": "Preview.png",

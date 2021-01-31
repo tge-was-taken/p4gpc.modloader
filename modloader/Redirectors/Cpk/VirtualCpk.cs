@@ -52,6 +52,8 @@ namespace modloader.Redirectors.Cpk
                 foreach ( var file in mod.Files )
                 {
                     var relPath = file.Substring( file.IndexOf( mod.LoadDirectory ) + mod.LoadDirectory.Length + 1 );
+                    if (relPath.IndexOf('\\') == -1)
+                        continue;
                     var cpkName = relPath.Substring( 0, relPath.IndexOf( '\\' ) );
                     if ( !cpkName.Equals( FileName, StringComparison.OrdinalIgnoreCase ) )
                         continue;
