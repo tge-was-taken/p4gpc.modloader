@@ -39,19 +39,22 @@ namespace modloader
 
         private bool CloseHandleImpl( IntPtr handle )
         {
+#if DEBUG
             try
             {
+#endif
                 foreach (var filter in _filters)
                 {
                     if (filter.Accept(handle))
                         return filter.CloseHandleImpl(handle);
                 }
+#if  DEBUG
             }
             catch (Exception e)
             {
                 _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(CloseHandleImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
-
+#endif
             return _hooks.CloseHandleHook.OriginalFunction(handle);
         }
 
@@ -91,18 +94,22 @@ namespace modloader
         private NtStatus NtQueryInformationFileImpl( IntPtr hfile, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
+#if DEBUG
             try
             {
+#endif
                 foreach (var filter in _filters)
                 {
                     if (filter.Accept(hfile))
                         return filter.NtQueryInformationFileImpl(hfile, out ioStatusBlock, fileInformation, length, fileInformationClass);
                 }
+#if DEBUG
             }
             catch (Exception e)
             {
                 _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(CloseHandleImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
+#endif
 
             return _hooks.NtQueryInformationFileHook.OriginalFunction(hfile, out ioStatusBlock, fileInformation, length, fileInformationClass);
         }
@@ -111,8 +118,10 @@ namespace modloader
         private NtStatus NtSetInformationFileImpl( IntPtr handle, out IO_STATUS_BLOCK ioStatusBlock, void* fileInformation,
             uint length, FileInformationClass fileInformationClass )
         {
+#if DEBUG
             try
             {
+#endif
                 if (fileInformationClass == FileInformationClass.FilePositionInformation && _handleToInfoMap.ContainsKey(handle))
                     _handleToInfoMap[handle].FilePointer = *(long*)fileInformation;
 
@@ -121,11 +130,13 @@ namespace modloader
                     if (filter.Accept(handle))
                         return filter.NtSetInformationFileImpl(handle, out ioStatusBlock, fileInformation, length, fileInformationClass);
                 }
+#if DEBUG
             }
             catch (Exception e)
             {
                 _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(NtSetInformationFileImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
+#endif
             
             return _hooks.NtSetInformationFileHook.OriginalFunction(handle, out ioStatusBlock, fileInformation, length, fileInformationClass);
         }
@@ -134,8 +145,10 @@ namespace modloader
         private unsafe NtStatus NtReadFileImpl( IntPtr handle, IntPtr hEvent, IntPtr* apcRoutine, IntPtr* apcContext,
             ref IO_STATUS_BLOCK ioStatus, byte* buffer, uint length, LARGE_INTEGER* byteOffset, IntPtr key )
         {
+#if DEBUG
             try
             {
+#endif
                 foreach (var filter in _filters)
                 {
                     if (filter.Accept(handle))
@@ -143,11 +156,13 @@ namespace modloader
                         return filter.NtReadFileImpl(handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key);
                     }
                 }
+#if DEBUG
             }
             catch (Exception e)
             {
                 _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(NtReadFileImpl)} Exception Thrown: Hnd: {handle} {e.Message}\nStack Trace: {e.StackTrace}");
             }
+#endif
             
             return _hooks.NtReadFileHook.OriginalFunction(handle, hEvent, apcRoutine, apcContext, ref ioStatus, buffer, length, byteOffset, key);
         }
@@ -156,8 +171,10 @@ namespace modloader
         private NtStatus NtCreateFileImpl( out IntPtr handle, FileAccess access, ref OBJECT_ATTRIBUTES objectAttributes,
             ref IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
+#if DEBUG
             try
             {
+#endif
                 string oldFileName = objectAttributes.ObjectName.ToString();
                 if (!TryGetFullPath(oldFileName, out var newFilePath))
                     return _hooks.NtCreateFileHook.OriginalFunction(out handle, access, ref objectAttributes, ref ioStatus, ref allocSize,
@@ -182,11 +199,13 @@ namespace modloader
                 }
 
                 return NtCreateFileDefault( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength, newFilePath );
+#if DEBUG
             }
             catch (Exception e)
             {
                 _logger.WriteLine($"[{nameof(modloader)}:{nameof(FileAccessServer)}] {nameof(NtCreateFileImpl)} Exception Thrown: {e.Message}\nStack Trace: {e.StackTrace}");
             }
+#endif
 
             return _hooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes, share, createDisposition, createOptions, eaBuffer, eaLength );
         }
