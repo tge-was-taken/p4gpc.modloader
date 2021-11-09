@@ -99,10 +99,11 @@ namespace modloader.Redirectors.Xact
                 mWaveBankByName[fileName] = waveBank = new VirtualWaveBank( mLogger );
 
                 // Load wave bank
-                using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024 ) )
                     waveBank.LoadFromFile( newFilePath, fileStream );
 
                 // Reopen file to reset it
+                mHooks.CloseHandleHook.OriginalFunction(handle);
                 result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes,
                     share, createDisposition, createOptions, eaBuffer, eaLength );
 
@@ -115,10 +116,11 @@ namespace modloader.Redirectors.Xact
                 mSoundBankByName[fileName] = soundBank = new VirtualSoundBank( mLogger );
 
                 // Load wave bank
-                using ( var fileStream = new FileStream( new SafeFileHandle( handle, true ), FileAccess.Read, 1024 * 1024 ) )
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024 ) )
                     soundBank.LoadFromFile( newFilePath, fileStream );
 
                 // Reopen file to reset it
+                mHooks.CloseHandleHook.OriginalFunction(handle);
                 result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes,
                     share, createDisposition, createOptions, eaBuffer, eaLength );
 
