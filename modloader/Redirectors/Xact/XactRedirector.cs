@@ -81,8 +81,9 @@ namespace modloader.Redirectors.Xact
         public override Native.NtStatus NtCreateFileImpl( string newFilePath, out IntPtr handle, FileAccess access, ref Native.OBJECT_ATTRIBUTES objectAttributes, 
             ref Native.IO_STATUS_BLOCK ioStatus, ref long allocSize, uint fileAttributes, FileShare share, uint createDisposition, uint createOptions, IntPtr eaBuffer, uint eaLength )
         {
+            // Fix for .NET 6: Force all operations synchronous for this open of file.
             var result = mHooks.NtCreateFileHook.OriginalFunction( out handle, access, ref objectAttributes, ref ioStatus, ref allocSize, fileAttributes,
-                share, createDisposition, createOptions, eaBuffer, eaLength );
+                share, createDisposition, createOptions | 0x20u, eaBuffer, eaLength );
 
             var fileName = Path.GetFileNameWithoutExtension( newFilePath );
             var ext = Path.GetExtension( newFilePath );
@@ -99,7 +100,7 @@ namespace modloader.Redirectors.Xact
                 mWaveBankByName[fileName] = waveBank = new VirtualWaveBank( mLogger );
 
                 // Load wave bank
-                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024 ) )
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024, false ) )
                     waveBank.LoadFromFile( newFilePath, fileStream );
 
                 // Reopen file to reset it
@@ -116,7 +117,7 @@ namespace modloader.Redirectors.Xact
                 mSoundBankByName[fileName] = soundBank = new VirtualSoundBank( mLogger );
 
                 // Load wave bank
-                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024 ) )
+                using ( var fileStream = new FileStream( new SafeFileHandle( handle, false ), FileAccess.Read, 1024 * 1024, false) )
                     soundBank.LoadFromFile( newFilePath, fileStream );
 
                 // Reopen file to reset it
