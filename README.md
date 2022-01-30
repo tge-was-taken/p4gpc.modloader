@@ -1,12 +1,12 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/n0gyja1foykuwmbo?svg=true)](https://ci.appveyor.com/project/TGEnigma/p4gpc-modloader)
+[![Build status](https://ci.appveyor.com/api/projects/status/n0gyja1foykuwmbo?svg=true)](https://ci.appveyor.com/project/tge/p4gpc-modloader)
 
 # p4gpc.modloader
 Mod loader for the Steam version of Persona 4 Golden
 
 # Download
-Stable releases can be found [here](https://github.com/TGEnigma/p4gpc.modloader/releases/).
+Stable releases can be found [here](https://github.com/tge/p4gpc.modloader/releases/).
 
-Development releases can be found [here](https://ci.appveyor.com/project/TGEnigma/p4gpc-modloader/build/artifacts).
+Development releases can be found [here](https://ci.appveyor.com/project/tge/p4gpc-modloader/build/artifacts).
 
 # Dependencies
 * Windows 7/8.1/10 with latest updates
