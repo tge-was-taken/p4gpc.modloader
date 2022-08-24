@@ -2,7 +2,7 @@
   "ModId": "p4gpc.modloader",
   "ModName": "Persona 4 Golden PC Mod Loader",
   "ModAuthor": "TGE, Sewer56, Tekka",
-  "ModVersion": "1.4.1",
+  "ModVersion": "1.4.2",
   "ModDescription": "A mod loader for Persona 4 Golden (Steam)",
   "ModDll": "modloader.dll",
   "ModIcon": "Preview.png",
@@ -10,7 +10,42 @@
   "ModR2RManagedDll64": "x64/modloader.dll",
   "ModNativeDll32": "",
   "ModNativeDll64": "",
-  "ModDependencies": [ "reloaded.sharedlib.hooks", "reloaded.universal.steamhook" ],
+  "IsLibrary": false,
+  "ReleaseMetadataFileName": "p4gpc.modloader.ReleaseMetadata.json",
+  "PluginData": {
+    "GitHubDependencies": {
+      "IdToConfigMap": {
+        "reloaded.sharedlib.hooks": {
+          "Config": {
+            "UserName": "Reloaded.SharedLib.Hooks.ReloadedII",
+            "RepositoryName": "Sewer56",
+            "UseReleaseTag": true,
+            "AssetFileName": "reloaded.sharedlib.hooks.zip"
+          },
+          "ReleaseMetadataName": "Sewer56.Update.ReleaseMetadata.json"
+        }
+      }
+    },
+    "NuGet": {
+      "AllowUpdateFromAnyRepository": false,
+      "DefaultRepositoryUrls": [
+        "http://packages.sewer56.moe:5000/v3/index.json"
+      ]
+    },
+    "GitHubRelease": {
+      "UserName": "tge-was-taken",
+      "RepositoryName": "p4gpc.modloader",
+      "UseReleaseTag": true,
+      "AssetFileName": "Mod.zip"
+    }
+  },
+  "IsUniversalMod": false,
+  "ModDependencies": [
+    "reloaded.sharedlib.hooks"
+  ],
   "OptionalDependencies": [],
-  "SupportedAppId": [ "p4g.exe" ]
+  "SupportedAppId": [
+    "p4g.exe"
+  ],
+  "ProjectUrl": "https://github.com/tge-was-taken/p4gpc.modloader"
 }
