@@ -262,7 +262,7 @@ namespace modloader.Redirectors.Xact
                 }
 
                 if ( durationAligned > txth.Duration )
-                    mLogger.Warning( $"[{path} Duration is not aligned properly, it may not play correctly ingame!" );
+                    mLogger.Info( $"[{path} Duration is not aligned properly, it may not play correctly ingame!" );
 
                 Native->FlagsAndDuration.Duration.Set( ( uint )durationAligned );
             }
