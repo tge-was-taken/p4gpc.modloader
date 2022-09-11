@@ -96,7 +96,7 @@ namespace modloader.Redirectors.Cpk
             var cpk = mCpkByHandle[ handle ];
             var effOffset = Utils.ResolveReadFileOffset( cpk.FilePointer, byteOffset );
             Unsafe.CopyBlock( buffer, (byte*)cpk.Instance.Native.Ptr + effOffset, length );
-            SetBytesRead( handle, (int)cpk.FilePointer, (int)length, ref ioStatus );
+            SetBytesRead( handle, (int)effOffset, (int)length, ref ioStatus );
             return NtStatus.Success;
         }
 

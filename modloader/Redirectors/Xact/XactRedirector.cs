@@ -334,7 +334,7 @@ namespace modloader.Redirectors.Xact
             {
                 // Header read
                 Unsafe.CopyBlock( buffer, waveBank.Native.Ptr + effOffset, length );
-                SetBytesRead( handle, (int)waveBank.FilePointer, (int)length, ref ioStatus );
+                SetBytesRead( handle, (int)effOffset, (int)length, ref ioStatus );
                 result = NtStatus.Success;
             }
             else if ( effOffset >= waveDataOffset && effOffset < waveBank.VirtualFileSize )

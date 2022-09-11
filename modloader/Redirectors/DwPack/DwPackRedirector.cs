@@ -250,7 +250,7 @@ namespace modloader.Redirectors.DwPack
                 }
 
                 Unsafe.CopyBlock( buffer, pack.Native.Ptr + effOffset, length );
-                SetBytesRead( handle, ( int )offset, ( int )length, ref ioStatus );
+                SetBytesRead( handle, ( int )effOffset, ( int )length, ref ioStatus );
                 result = NtStatus.Success;
             }
             else if ( effOffset >= dataOffset && effOffset < pack.VirtualFileSize )
